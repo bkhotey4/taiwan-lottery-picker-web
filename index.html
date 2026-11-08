@@ -161,6 +161,23 @@ body.can-save .save{display:inline-block}
 .money b{font-family:var(--f-num)}
 .money .up{color:var(--pick)}
 .money .down{color:var(--accent)}
+.rec-out{display:flex;flex-direction:column;gap:8px}
+.rec-out:empty{display:none}
+.rec-set{display:flex;flex-wrap:wrap;align-items:center;gap:4px 6px;padding:8px 10px;background:var(--bg);border-radius:10px}
+.rec-set .why{flex:1 1 100%;font-size:12px;color:var(--muted)}
+.rec-set .pop{font-size:12px;font-weight:700;color:var(--pick)}
+.rec-note{font-size:13px;margin:0}
+.rec-note b{font-family:var(--f-num)}
+.tool-btns{display:flex;gap:6px;flex-wrap:wrap}
+.tool-btns .ghost{padding:5px 10px;font-size:12px}
+.io{display:flex;flex-direction:column;gap:8px;background:var(--bg);border-radius:10px;padding:10px 12px}
+.io textarea{font:12px/1.4 var(--f-num);color:var(--ink);background:var(--paper);border:1.5px solid var(--line);border-radius:8px;padding:8px;resize:vertical;width:100%}
+.io input[type=file]{font-size:12px;color:var(--ink);max-width:100%}
+.io .msg:empty{display:none}
+.news{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:8px;background:var(--paper);border:2px solid var(--accent);border-radius:12px;padding:10px 14px;font-size:14px}
+.news b{font-family:var(--f-num);color:var(--accent)}
+.news-btns{display:flex;gap:6px}
+.news-btns .ghost{padding:5px 10px;font-size:12px}
 .manual{background:var(--bg);border-radius:10px;padding:10px 12px}
 .manual .controls{gap:8px}
 .manual .msg{margin-top:6px}
@@ -199,6 +216,7 @@ body.can-save .save{display:inline-block}
 
   <nav class="jump" aria-label="跳到">
     <a href="#main" class="main-link">選號</a>
+    <a href="#recBox">幫我挑</a>
     <a href="#picksBox">我存的號碼</a>
     <a href="#labBox">預測實驗</a>
     <a href="#wheelBox">包牌</a>
@@ -206,6 +224,11 @@ body.can-save .save{display:inline-block}
     <a href="#freqBox">歷年統計</a>
     <a href="#histBox">選號紀錄</a>
   </nav>
+
+  <div class="news" id="newsBar" hidden role="status">
+    <span id="newsText"></span>
+    <span class="news-btns"><button type="button" class="ghost" id="newsGo">看結果</button><button type="button" class="ghost" id="newsOk">知道了</button></span>
+  </div>
 
   <section class="slip" id="main" aria-live="polite">
     <div class="rule" id="rule"></div>
@@ -251,9 +274,40 @@ body.can-save .save{display:inline-block}
 </div>
 
 <div class="col col-side">
+  <section class="slip" id="recBox" aria-label="幫我挑一組">
+    <div class="row"><h2>要簽了嗎？幫我挑一組</h2><span class="rule" id="recMeta"></span></div>
+    <p class="rule" id="recIntro"></p>
+    <div class="controls">
+      <label class="field">組數
+        <select id="recCount"><option>1</option><option>2</option><option selected>3</option><option>5</option></select>
+      </label>
+      <button type="button" class="go" id="recGo">幫我挑</button>
+    </div>
+    <div class="rec-out" id="recOut"></div>
+    <p class="money" id="recScore"></p>
+  </section>
+
   <section class="slip" id="picksBox" hidden>
     <div class="row"><h2>我存的號碼</h2><span class="rule" id="picksSum"></span></div>
     <p class="money" id="picksMoney"></p>
+    <div class="row pick-tools">
+      <div class="tool-btns">
+        <button type="button" class="ghost" id="exportBtn">匯出</button>
+        <button type="button" class="ghost" id="importBtn">匯入</button>
+        <button type="button" class="ghost" id="notifyBtn" hidden>開啟中獎通知</button>
+      </div>
+      <span class="rule" id="toolMsg"></span>
+    </div>
+    <div class="io" id="ioBox" hidden>
+      <label class="field">選擇匯出的檔案
+        <input type="file" id="ioFile" accept=".json,.txt,application/json,text/plain">
+      </label>
+      <label class="field">或貼上匯出的文字
+        <textarea id="ioText" rows="4" spellcheck="false" placeholder='{"app":"lotto-picker", …}'></textarea>
+      </label>
+      <div class="row"><button type="button" class="ghost" id="ioDo">匯入這些號碼</button><button type="button" class="ghost" id="ioClose">關閉</button></div>
+      <p class="msg" id="ioNote"></p>
+    </div>
     <div class="manual">
       <div class="controls">
         <label class="field">彩種
@@ -824,7 +878,7 @@ function cleanPick(p){
   const z2=(Array.isArray(p.z2)?p.z2:[]).map(Number).filter(Number.isInteger);
   const t=Date.parse(p.createdAt); if(!z1.length||!Number.isFinite(t))return null;
   const after=p.afterPeriod==null?null:String(p.afterPeriod).replace(/\D/g,'')||null;
-  return{id:p.id,game:p.game,z1,z2,createdAt:new Date(t).toISOString(),afterPeriod:after,manual:!!p.manual};
+  return{id:p.id,game:p.game,z1,z2,createdAt:new Date(t).toISOString(),afterPeriod:after,manual:!!p.manual,rec:!!p.rec};
 }
 // 這個彩種所有已知的開獎（舊→新）：歷年資料（只有期別與號碼）＋最近幾期（有日期與獎金）
 const pdCache={};
@@ -873,7 +927,7 @@ function renderPicks(){
     else status=st.state==='pending'?'等開獎':st.state==='expired'?'已超過可對獎的期數':'還沒有開獎資料';
     const nums=g.digits?p.z1.join(''):p.z1.map(v=>fmt(v,2)).join(' ')+(p.z2.length?' ＋ '+p.z2.map(v=>fmt(v,2)).join(' '):'');
     const sv=taipei(p.createdAt);
-    return `<div class="pick"><span class="gname">${g.name}</span><span class="nums">${nums}</span><span class="rule">${sv.date.slice(5).replace('-','/')} 存${p.manual?' · 自選':''}</span>`+
+    return `<div class="pick"><span class="gname">${g.name}</span><span class="nums">${nums}</span><span class="rule">${sv.date.slice(5).replace('-','/')} 存${p.manual?' · 自選':''}${p.rec?' · 推薦':''}</span>`+
       `<button type="button" class="ghost del" data-id="${p.id}">刪除</button><span class="status${win?' win':''}">${status}</span></div>`;
   });
   const net=gained-spent;
@@ -881,6 +935,7 @@ function renderPicks(){
   $('picksMoney').innerHTML=drawn?`已開獎的 ${drawn} 組：花 <b>${spent.toLocaleString('en-US')}</b> 元，中 <b>${gained.toLocaleString('en-US')}</b> 元，`+
     `<b class="${net>=0?'up':'down'}">${net>=0?'賺':'虧'} ${Math.abs(net).toLocaleString('en-US')} 元</b>`+
     (unknown?`（另有 ${unknown} 組中獎但查不到金額，沒算進去）`:'')+'。以每組 1 注、官方每期實際獎金計算，不含稅。':'';
+  renderNews(); syncNative(); renderRecScore();
   $('picks').innerHTML=rows.length?rows.join(''):'<div class="pick"><span class="status">還沒有存號碼。按號碼旁的「存這組」，或在上面輸入自己買的號碼。</span></div>';
 }
 function renderSaveButtons(){
@@ -890,6 +945,167 @@ function renderSaveButtons(){
   const L=labCache[cur];
   document.querySelectorAll('#labPreds .save').forEach(b=>{const p=L&&L.next[+b.dataset.pred];if(!p)return;
     const done=saved.has(pickKey(cur,p.z1,p.z2?[p.z2]:[]));b.disabled=done;b.textContent=done?'已存':'存這組'});
+}
+// ---- 幫我挑一組：機率都一樣，挑「比較少人會選」的組合，萬一中頭獎比較不用跟人平分 ----
+const LUCKY=new Set([7,8,9,6,3,18,28,38,16,26,36]); // 常被當成幸運數字的號碼
+function popScore(id,z1){ // 分數越高 = 越像很多人會選的組合（估計）
+  const s=[...z1].sort((a,b)=>a-b), g=GAMES[id];
+  let sc=0, why=[];
+  const birth=s.filter(v=>v<=31).length, month=s.filter(v=>v<=12).length;
+  sc+=birth*1+month*0.5;
+  let pairs=0; for(let i=1;i<s.length;i++)if(s[i]===s[i-1]+1)pairs++; sc+=pairs*0.8;
+  const tails={}; s.forEach(v=>tails[v%10]=(tails[v%10]||0)+1); const sameTail=Object.values(tails).reduce((a,c)=>a+Math.max(0,c-1),0); sc+=sameTail*0.5;
+  const lucky=s.filter(v=>LUCKY.has(v)).length; sc+=lucky*0.3;
+  const r=cleanDraw(latest[id]); const copy=r?s.filter(v=>r.numbers.includes(v)).length:0; sc+=copy*1;
+  const high=g.z1.n-birth;
+  why.push(high?`${high} 個號碼大於 31（生日選不到）`:'都在 31 以內');
+  why.push(pairs?`${pairs} 組相鄰號碼`:'沒有連號');
+  if(copy)why.push(`和上一期重複 ${copy} 個`);
+  return{sc,why};
+}
+function recommendSets(id,n){
+  const g=GAMES[id], out=[], used=new Set(), keys=new Set(pendingKeys());
+  for(let k=0;k<n;k++){
+    let best=null;
+    for(let t=0;t<400;t++){ // 隨機抽 400 組，留下最少人會選的那組（每次結果都不同）
+      const z1=g.digits?Array.from({length:g.digits},()=>rnd(10)):pickPrefer(g.z1.n,g.z1.max,[],used).sort((a,b)=>a-b);
+      const z2=g.z2?[rnd(g.z2.max)+1]:[];
+      if(keys.has(pickKey(id,z1,z2)))continue;
+      if(g.digits){best={z1,z2,sc:0,why:[]};break}
+      if(isPopular(id,z1))continue;
+      const p=popScore(id,z1); if(!best||p.sc<best.sc)best={z1,z2,...p};
+    }
+    if(!best)continue;
+    out.push(best); keys.add(pickKey(id,best.z1,best.z2));
+    if(!g.digits){best.z1.forEach(v=>used.add(v)); if(used.size>g.z1.max-g.z1.n)used.clear()}
+  }
+  return out;
+}
+function renderRecIntro(){
+  const g=GAMES[cur], t=TIERS[cur], p=t.list.reduce((a,x)=>a+x[2],0)/t.total;
+  $('recIntro').innerHTML=g.digits
+    ?`${g.name}正彩獎金固定（不會跟人平分），每一組中獎機率都是 <b>${oneIn(p)}</b>，所以推薦就是隨機挑，沒有比較好的組合。`
+    :`老實說：每一組中獎機率都一樣（任一獎 <b>${oneIn(p)}</b>、頭獎 <b>${oneIn(t.list[0][2]/t.total)}</b>），沒有組合比較容易中。我能幫你的是挑<b>比較少人會選</b>的號碼（避開生日、連號、幸運數字、上一期號碼），萬一中頭獎比較不用跟別人平分。`;
+  $('recMeta').textContent=g.name;
+  renderRecScore();
+}
+async function doRecommend(){
+  const id=cur, g=GAMES[id], t=TIERS[id], p=t.list.reduce((a,x)=>a+x[2],0)/t.total, sets=recommendSets(id,+$('recCount').value);
+  const r=latest[id];
+  $('recOut').innerHTML=sets.map((s,i)=>`<div class="rec-set"><span class="idx">${String(i+1).padStart(2,'0')}</span>`+
+    s.z1.map(v=>`<span class="ball sm">${g.digits?v:fmt(v,2)}</span>`).join('')+(s.z2.length?`<span class="sep">＋</span><span class="ball sm z2">${fmt(s.z2[0],2)}</span>`:'')+
+    (g.digits?'':`<span class="pop">比較少人選</span><span class="why">${s.why.join('・')}</span>`)+'</div>').join('')+
+    `<p class="rec-note">這 ${sets.length} 組：至少中一個獎約 <b>${pct(t.list.length>1?1-Math.pow(1-p,sets.length):sets.length*p)}</b>，中${g.digits?'正彩':'頭獎'} <b>${oneIn(sets.length*t.list[0][2]/t.total)}</b>，要花 <b>${(sets.length*PRICE[id]).toLocaleString('en-US')}</b> 元。`+
+    (picksCol?'已自動存進「我存的號碼」（標示「推薦」），開獎後會對獎，下面的推薦成績也會更新。':'登入後推薦的號碼會自動存起來對獎。')+'</p>';
+  if(!picksCol)return;
+  for(const s of sets){
+    if(picks.length>=MAX_PICKS){$('recScore').textContent=`已存滿 ${MAX_PICKS} 組，先刪掉一些舊的才能記錄推薦`;break}
+    try{await picksCol.doc().set({game:id,z1:s.z1,z2:s.z2,createdAt:new Date().toISOString(),afterPeriod:r&&r.period!=null?String(r.period):null,rec:true})}catch(e){}
+  }
+}
+// 推薦成績：所有標示「推薦」的號碼，開獎後的結果跟理論值比
+function renderRecScore(){
+  const el=$('recScore'); if(!el)return;
+  const recs=picks.filter(p=>p.rec); if(!recs.length){el.textContent='';return}
+  let drawn=0, won=0, spent=0, gained=0, exp=0;
+  for(const p of recs){const st=drawForPick(p); if(st.state!=='drawn')continue;
+    drawn++; spent+=PRICE[p.game]; const t=TIERS[p.game]; exp+=t.list.reduce((a,x)=>a+x[2],0)/t.total;
+    const m=matchSet(p.game,{z1:p.z1,z2:p.z2},st.draw); if(m.prize){won++;const a=st.draw.prizes&&st.draw.prizes[m.prize];if(Number.isFinite(a))gained+=a}}
+  el.innerHTML=`<b>推薦成績：</b>推薦過 ${recs.length} 組，已開獎 ${drawn} 組，中獎 <b>${won}</b> 組（理論上平均約 ${exp.toFixed(1)} 組）`+
+    (drawn?`，花 ${spent.toLocaleString('en-US')} 元、中 ${gained.toLocaleString('en-US')} 元。`:'。');
+}
+// ---- 匯出／匯入存的號碼 ----
+const NATIVE=window.LottoApp||null; // Android App 提供的功能（網頁版沒有）
+const toolMsg=t=>{$('toolMsg').textContent=t};
+function validPick(p){
+  const g=GAMES[p.game];
+  if(g.digits)return p.z1.length===g.digits&&p.z1.every(v=>v>=0&&v<=9)&&!p.z2.length;
+  return p.z1.length===g.z1.n&&new Set(p.z1).size===g.z1.n&&p.z1.every(v=>v>=1&&v<=g.z1.max)&&
+    (g.z2?p.z2.length===1&&p.z2[0]>=1&&p.z2[0]<=g.z2.max:p.z2.length===0);
+}
+function exportText(){
+  return JSON.stringify({app:'lotto-picker',version:1,exportedAt:new Date().toISOString(),
+    picks:picks.map(p=>({game:p.game,z1:p.z1,z2:p.z2,createdAt:p.createdAt,afterPeriod:p.afterPeriod,manual:p.manual,rec:p.rec}))},null,1);
+}
+async function doExport(){
+  if(!picks.length)return toolMsg('還沒有存號碼可以匯出');
+  const text=exportText(), name=`彩券號碼機-存的號碼-${taipei(new Date().toISOString()).date}.json`;
+  if(NATIVE&&NATIVE.share){NATIVE.share(name,text);return toolMsg('已開啟分享，可以存到雲端硬碟或傳給自己')}
+  if(window.claude&&typeof window.claude.use==='function'){
+    let dl=null; try{dl=await window.claude.use('downloads')}catch(e){}
+    if(dl){try{await dl.save({filename:name,data:text});return toolMsg('已匯出 '+name)}
+      catch(e){if(e&&e.code==='declined')return toolMsg('已取消匯出')}}
+  }else try{
+    const a=document.createElement('a'); a.href=URL.createObjectURL(new Blob([text],{type:'application/json'})); a.download=name;
+    document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(a.href),10000);
+    return toolMsg('已下載 '+name);
+  }catch(e){}
+  // 都不行時：把文字放出來讓使用者自己複製
+  $('ioBox').hidden=false; $('ioText').value=text; $('ioNote').textContent='沒辦法直接存成檔案，請複製上面整段文字保存。';
+}
+async function doImport(text){
+  const note=t=>{$('ioNote').textContent=t};
+  if(!picksCol)return note('目前沒辦法存號碼');
+  let obj; try{obj=JSON.parse(text)}catch(e){return note('看不懂這段內容，請貼上從「匯出」得到的整段文字')}
+  const arr=Array.isArray(obj)?obj:obj&&Array.isArray(obj.picks)?obj.picks:null;
+  if(!arr)return note('裡面沒有號碼資料');
+  const have=new Set(picks.map(p=>pickKey(p.game,p.z1,p.z2)+'@'+p.createdAt));
+  let added=0, dup=0, full=0, bad=0;
+  $('ioDo').disabled=true; note('匯入中…');
+  for(const raw of arr){
+    const p=cleanPick({...(raw&&typeof raw==='object'?raw:{}),id:'x'});
+    if(!p||!validPick(p)){bad++;continue}
+    const k=pickKey(p.game,p.z1,p.z2)+'@'+p.createdAt;
+    if(have.has(k)){dup++;continue}
+    if(picks.length+added>=MAX_PICKS){full++;continue}
+    try{await picksCol.doc().set({game:p.game,z1:p.z1,z2:p.z2,createdAt:p.createdAt,afterPeriod:p.afterPeriod,manual:p.manual,rec:p.rec});have.add(k);added++}
+    catch(e){bad++; if(e&&e.message==='storage')break}
+  }
+  $('ioDo').disabled=false;
+  note(`匯入 ${added} 組`+(dup?`，${dup} 組已經有了`:'')+(full?`，${full} 組超過 ${MAX_PICKS} 組上限`:'')+(bad?`，${bad} 組格式不對或存不進去`:'')+'。');
+  if(added){$('ioText').value='';$('ioFile').value=''}
+}
+function bindIO(){
+  $('exportBtn').onclick=doExport;
+  $('importBtn').onclick=()=>{$('ioBox').hidden=!$('ioBox').hidden;$('ioNote').textContent=''};
+  $('ioClose').onclick=()=>{$('ioBox').hidden=true};
+  $('ioFile').onchange=()=>{const f=$('ioFile').files[0];if(!f)return;
+    if(f.size>1e6){$('ioNote').textContent='檔案太大，不像是匯出的號碼檔';return}
+    const r=new FileReader();r.onload=()=>{$('ioText').value=String(r.result||'');$('ioNote').textContent='已讀取檔案，按「匯入這些號碼」'};r.readAsText(f)};
+  $('ioDo').onclick=()=>{const t=$('ioText').value.trim();if(!t){$('ioNote').textContent='請先選擇檔案或貼上文字';return}doImport(t)};
+  // Android App：中獎通知開關
+  if(NATIVE&&NATIVE.enableNotify){
+    const sync=()=>{let on=false;try{on=!!NATIVE.notifyEnabled()}catch(e){}$('notifyBtn').textContent=on?'中獎通知：開':'開啟中獎通知';$('notifyBtn').dataset.on=on?'1':''};
+    $('notifyBtn').hidden=false; sync();
+    $('notifyBtn').onclick=()=>{const on=!$('notifyBtn').dataset.on;try{NATIVE.enableNotify(on)}catch(e){}
+      toolMsg(on?'每晚 10 點多會檢查存的號碼，開獎了就通知你':'已關閉中獎通知');setTimeout(sync,1500)};
+    document.addEventListener('visibilitychange',()=>{if(!document.hidden)sync()});
+  }
+}
+// 把還沒開獎的號碼交給 Android App，讓它在背景對獎、發通知
+let nativeSynced='';
+function syncNative(){
+  if(!NATIVE||!NATIVE.savePicks||!picksReady)return;
+  const pend=picks.filter(p=>{const s=drawForPick(p).state;return s==='pending'||s==='nodata'}).map(p=>{const t=taipei(p.createdAt);
+    return{id:p.id,game:p.game,z1:p.z1,z2:p.z2,afterPeriod:p.afterPeriod,savedDate:t.date,savedHour:t.hour}});
+  const j=JSON.stringify(pend); if(j===nativeSynced)return; nativeSynced=j;
+  try{NATIVE.savePicks(j)}catch(e){}
+}
+// ---- 開獎結果提示：上次打開之後才開獎的號碼 ----
+function renderNews(){
+  if(!picksReady||!Object.keys(latest).length)return;
+  if(picks.some(p=>!GAMES[p.game].digits&&!histData[p.game]))return; // 等歷年資料載入完，舊號碼才對得到正確期別
+  const drawn=picks.map(p=>({p,st:drawForPick(p)})).filter(x=>x.st.state==='drawn');
+  const raw=store('lucky.seen');
+  if(!Array.isArray(raw)){store('lucky.seen',drawn.map(x=>x.p.id));return} // 第一次：目前已開獎的都當作看過
+  const seen=new Set(raw), fresh=drawn.filter(x=>!seen.has(x.p.id));
+  if(!fresh.length){$('newsBar').hidden=true;return}
+  let won=0, amt=0;
+  fresh.forEach(x=>{const m=matchSet(x.p.game,{z1:x.p.z1,z2:x.p.z2},x.st.draw);if(m.prize){won++;const a=x.st.draw.prizes&&x.st.draw.prizes[m.prize];if(Number.isFinite(a))amt+=a}});
+  $('newsText').innerHTML=`上次之後有 <b>${fresh.length}</b> 組存的號碼開獎了：`+(won?`中 <b>${won}</b> 組${amt?`，共 <b>${amt.toLocaleString('en-US')}</b> 元`:''}！`:'這次都沒中。');
+  $('newsBar').hidden=false;
+  $('newsOk').onclick=()=>{const keep=new Set(picks.map(p=>p.id));store('lucky.seen',[...new Set([...raw,...fresh.map(x=>x.p.id)])].filter(id=>keep.has(id)));$('newsBar').hidden=true};
+  $('newsGo').onclick=()=>{$('newsOk').click();$('picksBox').scrollIntoView({block:'start'})};
 }
 // ---- 手動輸入自己買的號碼 ----
 function syncManual(){
@@ -1035,7 +1251,7 @@ function renderAvoid(){
   $('avoid').checked=avoid&&!off; $('avoid').disabled=off; $('avoidWrap').classList.toggle('off',off);
   $('avoidHint').textContent=off?`${g.name}正彩獎金固定，不會跟別人平分，不需要避開`:'少選生日、連號、規則排列、照抄上一期，萬一中頭獎比較不會跟別人平分（中獎機率不變）';
 }
-function renderRule(){const g=GAMES[cur];$('rule').innerHTML=`<span><b>${g.name}</b></span><span>${g.rule}</span>`;renderAvoid();renderNextDraw();renderWheel();renderFreq();renderLab();
+function renderRule(){const g=GAMES[cur];$('rule').innerHTML=`<span><b>${g.name}</b></span><span>${g.rule}</span>`;renderAvoid();renderNextDraw();renderWheel();renderFreq();renderLab();renderRecIntro();$('recOut').innerHTML='';
   $('must').placeholder=g.digits?'例如 7（從第一位開始指定）':'例如 7 18';
   $('odds').innerHTML=g.odds.map(([l,v])=>`<div><small>${l}機率</small><strong>1 / ${v.toLocaleString('en-US')}</strong></div>`).join('')+
     `<div><small>每期買 1 注、連買 1 年（約 ${DRAW_DAYS[cur].length*52} 期）中${g.digits?'正彩':'頭獎'}的機率</small><strong>約 1 / ${Math.round(g.odds[0][1]/(DRAW_DAYS[cur].length*52)).toLocaleString('en-US')}</strong></div>`}
@@ -1049,6 +1265,8 @@ $('go').onclick=()=>run(true);
 bindWheel();
 bindLab();
 bindManual();
+bindIO();
+$('recGo').onclick=doRecommend;
 // ---- 可安裝的 App（只在獨立網頁上；Claude 頁面不需要） ----
 if(!window.claude&&location.protocol==='https:'){
   const head=document.head||document.documentElement;
