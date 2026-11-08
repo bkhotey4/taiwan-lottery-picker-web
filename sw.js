@@ -2,7 +2,7 @@
 // - 網頁本身、統計、AI 預測（所有 .json）：先抓網路上最新的，失敗（離線）才用快取，所以網頁更新後會自動拿到新版
 // - 圖示、設定檔：先用快取
 // - 台灣彩券 API 與 Google 字型：不快取，直接走網路
-const CACHE = 'lotto-app-v27';
+const CACHE = 'lotto-app-v28';
 const CORE = ['./', 'index.html', 'stats.json', 'history.json', 'manifest.webmanifest',
   'icons/icon-192.png', 'icons/icon-512.png', 'icons/apple-touch-icon.png', 'icons/favicon-32.png'];
 

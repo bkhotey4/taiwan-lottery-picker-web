@@ -1716,13 +1716,16 @@ function nextDrawOf(id){ // 下一次開獎的日期（台北時間）
   return null;
 }
 function scheduleToday(){clearTimeout(todayTimer);todayTimer=setTimeout(renderToday,60)}
-function renderToday(){
-  const box=$('todayList'); if(!box)return;
+let todayRun=0;
+async function renderToday(){ // 一次算一種彩券，算完先顯示再讓出畫面，第一次打開才不會卡住
+  const box=$('todayList'); if(!box)return; const run=++todayRun;
   const ids=['lotto','power','d539','s3','s4'].filter(id=>GAMES[id].digits?digitDraws(id):labDraws(id)); if(!ids.length){box.innerHTML='<p class="rule">歷年開獎資料載入中…</p>';return}
   ids.sort((a,b)=>((nextDrawOf(a)||{d:9}).d-(nextDrawOf(b)||{d:9}).d));
   const rows=[]; todaySets={};
   for(const id of ids){
-    const g=GAMES[id], L=g.digits?runLabDigits(id):runLab(id); if(!L)continue;
+    const g=GAMES[id], cached=labCache[id]&&labCache[id].key;
+    if(!cached){box.innerHTML=rows.join('')+`<p class="rule">${g.name}計算中…</p>`;renderSaveButtons();await new Promise(r=>setTimeout(r,30));if(run!==todayRun)return}
+    const L=g.digits?runLabDigits(id):runLab(id); if(!L)continue;
     const p=L.next.find(x=>x.id==='hedge'), r=L.rows.find(x=>x.id==='hedge'), nd=nextDrawOf(id), short=g.digits?MODEL_SHORT_D:MODEL_SHORT, unit=g.digits?'位':'個';
     if(!p)continue; todaySets[id]={z1:p.z1.slice(),z2:p.z2?[p.z2]:[]};
     const wts=L.hw?Object.entries(L.hw).sort((a,b)=>b[1]-a[1]).slice(0,3).map(([k,v])=>`${short[k]||k} ${Math.round(v*100)}%`).join('、'):'';
