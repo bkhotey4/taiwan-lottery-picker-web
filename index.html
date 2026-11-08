@@ -62,6 +62,12 @@ button:focus-visible,input:focus-visible,select:focus-visible{outline:3px solid 
 .fold-btn{flex:none;padding:6px 14px;font-size:13px}
 .fold-hint{margin:6px 0 0;font-size:13px;color:var(--muted);cursor:pointer}
 .tagline{margin:4px 0 0;font-size:14px}
+.sim-pct{display:grid;gap:4px;margin-top:10px;font-size:13px}
+.sim-pct:empty{display:none}
+.sim-pct div{display:flex;justify-content:space-between;gap:8px;padding:6px 10px;background:var(--bg);border-radius:8px}
+.sim-pct b{font-family:var(--f-num)}
+.sim-pct .up{color:var(--pick)}
+.sim-pct .down{color:var(--accent)}
 .ev-head{margin:6px 0 0;font-size:15px}
 .ev-head b{font-family:var(--f-num)}
 .ev-tag{display:inline-block;margin-left:8px;padding:1px 8px;border-radius:999px;font-size:12px;border:1px solid var(--line);color:var(--muted);vertical-align:2px}
@@ -294,6 +300,7 @@ body.can-save .save{display:inline-block}
     <a href="#labBox">預測實驗</a>
     <a href="#wheelBox">包牌</a>
     <a href="#budgetBox">預算比較</a>
+    <a href="#simBox">長期模擬</a>
     <a href="#freqBox">歷年統計</a>
     <a href="#histBox">選號紀錄</a>
   </nav>
@@ -463,11 +470,14 @@ body.can-save .save{display:inline-block}
       </label>
       <button type="button" class="ghost" id="wheelRand">隨機挑號碼</button>
     </div>
+    <label class="field">包法
+      <select id="wheelMode"></select>
+    </label>
     <p class="msg" id="wheelMsg"></p>
     <div class="odds" id="wheelOut"></div>
     <details class="tiers" id="wheelListWrap"><summary id="wheelListSum">展開全部組合</summary><div class="hist" id="wheelList"></div></details>
     <div class="row"><button type="button" class="ghost" id="wheelCopy">複製全部組合</button><span class="rule" id="wheelCopied"></span></div>
-    <p class="note">包牌就是把你選的號碼所有組合都買下來。頭獎機率跟隨機買同樣注數一樣；但因為組合全集中在少數號碼上，「至少中一個獎」反而比隨機買低很多。好處是開出的號碼落在你的號碼裡時，會一次中很多注。</p>
+    <p class="note">「全包」是把你選的號碼所有組合都買下來。「縮水」用數學的覆蓋設計（covering design），挑出最少的組合，保證「開出的號碼有 m 個落在你選的號碼裡時，至少一注中 t 個」，注數少很多，但只保證到那個獎，中頭獎機率也跟著變小。不管哪一種，頭獎機率都跟隨機買同樣注數一樣，平均拿回的錢也一樣。</p>
   </section>
 
   <section class="slip" id="budgetBox" aria-label="預算比較">
@@ -479,7 +489,25 @@ body.can-save .save{display:inline-block}
       <thead><tr><th>彩種</th><th>每注</th><th>可買</th><th>至少中一個獎</th><th>中頭獎</th></tr></thead>
       <tbody id="cmpRows"></tbody>
     </table></div>
-    <p class="note">每注號碼都不一樣時的機率。中獎機會越高的彩種，獎金通常越小；彩券平均拿回來的錢比花出去的少，買越多平均虧越多，先訂好預算再玩。3星／4星只算正彩。</p>
+    <p class="note">每注號碼都不一樣時的機率。中獎機會越高的彩種，獎金通常越小；彩券平均拿回來的錢比花出去的少，買越多平均虧越多，先訂好預算再玩。3星／4星的「頭獎」是固定 5,000／50,000 元的壹獎。</p>
+  </section>
+
+  <section class="slip" id="simBox" aria-label="長期模擬">
+    <div class="row"><h2>如果一直買下去，會怎樣？</h2><span class="rule" id="simMeta"></span></div>
+    <p class="rule">用大數法則和蒙地卡羅模擬：照真實的獎項機率與獎金，模擬 2,000 個人照同樣方式買，看最後的結果分布。</p>
+    <div class="controls">
+      <label class="field">每期買
+        <select id="simK"><option value="1">1 注</option><option value="2">2 注</option><option value="5">5 注</option><option value="10">10 注</option></select>
+      </label>
+      <label class="field">連續買
+        <select id="simY"><option value="1">1 年</option><option value="5" selected>5 年</option><option value="10">10 年</option><option value="20">20 年</option></select>
+      </label>
+      <button type="button" class="ghost" id="simGo">開始模擬</button>
+    </div>
+    <div class="odds" id="simOut"></div>
+    <div class="sim-pct" id="simPct"></div>
+    <p class="freq-sum" id="simSum"></p>
+    <p class="note">每期獨立抽獎；小獎用最近幾期實際每注獎金平均，頭獎用本期估計金額（含跟別人平分、扣 20% 稅）。凱利公式是讓資金長期成長最快的下注比例：平均拿回的錢少於本金時，答案是 0。</p>
   </section>
 
   <section class="slip" id="freqBox" aria-label="歷年號碼開出次數" hidden>
@@ -508,8 +536,8 @@ const GAMES={
   lotto:{name:'大樂透',z1:{n:6,max:49},z2:null,sort:true,pad:2,odds:[['頭獎（6 個全中）',comb(49,6)]],rule:'從 01–49 選 6 個號碼'},
   power:{name:'威力彩',z1:{n:6,max:38},z2:{n:1,max:8},sort:true,pad:2,odds:[['頭獎（第一區 6 個＋第二區）',comb(38,6)*8]],rule:'第一區 01–38 選 6 個，第二區 01–08 選 1 個'},
   d539:{name:'今彩539',z1:{n:5,max:39},z2:null,sort:true,pad:2,odds:[['頭獎（5 個全中）',comb(39,5)]],rule:'從 01–39 選 5 個號碼'},
-  s3:{name:'3星彩',digits:3,odds:[['正彩（3 位依序全中）',1000]],rule:'3 個位數，每位 0–9，可重複'},
-  s4:{name:'4星彩',digits:4,odds:[['正彩（4 位依序全中）',10000]],rule:'4 個位數，每位 0–9，可重複'}
+  s3:{name:'3星彩',digits:3,odds:[['壹獎（3 位依序全中）',1000]],rule:'3 個位數，每位 0–9，可重複'},
+  s4:{name:'4星彩',digits:4,odds:[['壹獎（4 位依序全中）',10000]],rule:'4 個位數，每位 0–9，可重複'}
 };
 function comb(n,k){let r=1;for(let i=1;i<=k;i++)r=r*(n-k+i)/i;return Math.round(r)}
 // 各獎項的中獎組合數（每一注）：[獎項, 條件, 中獎組合數]，total 為全部可能組合數
@@ -520,8 +548,8 @@ const TIERS={
     .map(([n,d,k,h])=>[n,d,comb(6,k)*comb(32,6-k)*(h?1:7)])},
   d539:{total:comb(39,5),list:[['頭獎','5 個全中',5],['貳獎','4 個',4],['參獎','3 個',3],['肆獎','2 個',2]]
     .map(([n,d,k])=>[n,d,comb(5,k)*comb(34,5-k)])},
-  s3:{total:1000,list:[['正彩','3 位依序全中',1]],extra:'3星彩的組彩、對彩等是另外的下注玩法，這裡只算正彩。'},
-  s4:{total:10000,list:[['正彩','4 位依序全中',1]],extra:'4星彩的組彩等是另外的下注玩法，這裡只算正彩。'}
+  s3:{total:1000,list:[['壹獎','3 位依序全中',1],['貳獎','後 2 位對中（佰位不中）',9],['參獎','只中個位（佰、拾位都不中）',81]],extra:'獎金固定：壹獎 5,000、貳獎 500、參獎 50 元（以台彩公告為準）。'},
+  s4:{total:10000,list:[['壹獎','4 位依序全中',1],['貳獎','後 3 位對中（千位不中）',9],['參獎','後 2 位對中（千、佰位都不中）',81]],extra:'獎金固定：壹獎 50,000、貳獎 5,000、參獎 500 元（以台彩公告為準）。'}
 };
 // ---- 包牌試算 ----
 const WHEEL_MAX=16; // 最多選幾個號碼（大樂透 16 個 = 8,008 注）
@@ -533,6 +561,27 @@ function parseNums(raw,max){
 function combos(arr,k){const out=[],cur2=[];(function rec(s){if(cur2.length===k){out.push(cur2.slice());return}for(let i=s;i<=arr.length-(k-cur2.length);i++){cur2.push(arr[i]);rec(i+1);cur2.pop()}})(0);return out}
 // 超幾何：從 N 顆開 n 顆，你的 m 個號碼裡剛好中 j 個的機率
 function hyper(N,n,m,j){return j<0||j>n||j>m||n-j>N-m?0:comb(m,j)*comb(N-m,n-j)/comb(N,n)}
+// ---- 縮水包牌：覆蓋設計（貪婪法）。目標：你選的號碼裡任 m 個，都至少有一注包含其中 t 個 ----
+const popc=x=>{x-=x>>>1&0x55555555;x=(x&0x33333333)+(x>>>2&0x33333333);return((x+(x>>>4))&0x0F0F0F0F)*0x01010101>>>24};
+function maskCombos(v,k){const out=[];(function rec(s,mask,left){if(!left){out.push(mask);return}for(let i=s;i<=v-left;i++)rec(i+1,mask|1<<i,left-1)})(0,0,k);return out}
+const coverCache={};
+function coverDesign(v,n,m,t){ // 回傳選中的組合（位元遮罩，位置對應你選的第幾個號碼）
+  const key=[v,n,m,t].join(','); if(coverCache[key])return coverCache[key];
+  const blocks=maskCombos(v,n), targets=maskCombos(v,m), T=targets.length;
+  const lists=blocks.map(b=>{const a=[];for(let i=0;i<T;i++)if(popc(b&targets[i])>=t)a.push(i);return a});
+  const done=new Uint8Array(T); let left=T; const pick=[];
+  while(left>0){
+    let best=-1,bs=0; for(let j=0;j<blocks.length;j++){const L=lists[j];let c=0;for(let q=0;q<L.length;q++)if(!done[L[q]])c++;if(c>bs){bs=c;best=j}}
+    if(best<0)break; pick.push(blocks[best]); for(const i of lists[best])if(!done[i]){done[i]=1;left--}
+  }
+  // 自我檢查：每個目標都被涵蓋
+  const ok=targets.every(tg=>pick.some(b=>popc(b&tg)>=t));
+  return coverCache[key]={pick,ok,full:blocks.length};
+}
+function wheelModes(){ // [m,t]：開出 m 個在你的號碼裡 → 保證至少一注中 t 個
+  const g=GAMES[cur], minT=cur==='d539'?2:3;
+  return [[3,2],[3,3],[4,3],[4,4],[5,4],[5,5]].filter(([m,t])=>t>=minT&&m<=g.z1.n&&t<g.z1.n);
+}
 function renderWheel(){
   const g=GAMES[cur], box=$('wheelBox');
   if(g.digits){box.hidden=true;return}
@@ -540,6 +589,9 @@ function renderWheel(){
   const n=g.z1.n, minM=n+1;
   $('wheelRule').textContent=`${g.name}：選 ${minM}–${WHEEL_MAX} 個號碼（01–${fmt(g.z1.max,2)}），每注 ${PRICE[cur]} 元`+(g.z2?'，第二區可以選 1–8 個':'');
   $('wheelZ2Wrap').hidden=!g.z2;
+  const sel=$('wheelMode'), modes=wheelModes(), keep=sel.value;
+  sel.innerHTML='<option value="full">全包（所有組合）</option>'+modes.map(([m,t])=>`<option value="${m}-${t}">縮水：開出 ${m} 個在裡面 → 保證中 ${t} 個</option>`).join('');
+  if([...sel.options].some(o=>o.value===keep))sel.value=keep;
   const out=$('wheelOut'), list=$('wheelList');
   const fail=t=>{$('wheelMsg').textContent=t;out.innerHTML='';list.innerHTML='';$('wheelListWrap').hidden=true;$('wheelCopy').hidden=true;wheelLast=[]};
   const a=parseNums($('wheelNums').value,g.z1.max);
@@ -552,6 +604,7 @@ function renderWheel(){
   if(g.z2){const b=parseNums($('wheelZ2').value,g.z2.max);if(b.bad)return fail('第二區要在 01–08 之間');z2=b.list.sort((x,y)=>x-y);if(!z2.length)return fail('第二區至少選 1 個')}
   $('wheelMsg').textContent='';
   const nums=a.list.sort((x,y)=>x-y), k=g.z2?z2.length:1;
+  if(sel.value!=='full')return renderCover(g,nums,z2,sel.value.split('-').map(Number));
   const c=comb(m,n), tickets=c*k, cost=tickets*PRICE[cur];
   const N=g.z1.max;
   let jp=c/comb(N,n), any;
@@ -578,7 +631,41 @@ function renderWheel(){
   list.innerHTML=wheelLast.slice(0,SHOW).map((t,i)=>`<div><span>${String(i+1).padStart(4,' ')}</span><b>${t}</b></div>`).join('');
   $('wheelListWrap').hidden=false; $('wheelCopy').hidden=false; $('wheelCopied').textContent='';
 }
+function renderCover(g,nums,z2,[mm,tt]){
+  const out=$('wheelOut'), list=$('wheelList'), v=nums.length, n=g.z1.n, k=g.z2?z2.length:1, N=g.z1.max;
+  if(mm>v){$('wheelMsg').textContent=`這種縮水至少要選 ${mm} 個號碼`;return}
+  const cd=coverDesign(v,n,mm,tt);
+  const z1c=cd.pick.map(b=>nums.filter((_,i)=>b>>i&1));
+  const tickets=z1c.length*k, cost=tickets*PRICE[cur];
+  // 機率：用 2 萬次模擬開獎估計（縮水的組合沒有簡單公式）
+  let any=0,jp=0,cond=0,condOk=0; const R=20000, rng=Math.random;
+  for(let r=0;r<R;r++){
+    const pool=[];for(let i=1;i<=N;i++)pool.push(i);
+    for(let i=0;i<n+1;i++){const j=i+Math.floor(rng()*(N-i));[pool[i],pool[j]]=[pool[j],pool[i]]}
+    const draw=pool.slice(0,n), set=new Set(draw), sp=g.z2?1+Math.floor(rng()*g.z2.max):(cur==='lotto'?pool[n]:null);
+    const inMine=nums.filter(x=>set.has(x)).length;
+    let win=false,best=0;
+    for(const tk of z1c){const h=tk.filter(x=>set.has(x)).length;if(h>best)best=h;
+      for(const z of (g.z2?z2:[null])){const spHit=g.z2?z===sp:cur==='lotto'&&tk.includes(sp);if(prizeName(cur,h,spHit))win=true}}
+    if(win)any++; if(inMine>=mm){cond++;if(best>=tt)condOk++}
+  }
+  jp=z1c.length*(g.z2?k/g.z2.max:1)/comb(N,n);
+  const t=TIERS[cur], p1=t.list.reduce((s2,x)=>s2+x[2],0)/t.total, anyRand=1-Math.pow(1-p1,tickets);
+  out.innerHTML=[
+    ['總共',`${tickets.toLocaleString('en-US')} 注`,`全包要 ${(cd.full*k).toLocaleString('en-US')} 注，省 ${Math.round((1-z1c.length/cd.full)*100)}%`,false],
+    ['要花',`${cost.toLocaleString('en-US')} 元`,`每注 ${PRICE[cur]} 元`,true],
+    ['保證',`中 ${mm} 保 ${tt}`,`開出的號碼有 ${mm} 個以上在你的 ${v} 個裡，至少一注中 ${tt} 個（已逐一檢查${cd.ok?'通過':'未通過'}）`,true],
+    ['中頭獎',oneIn(jp),pct(jp),false],
+    ['至少中一個獎',`約 ${pct(any/R)}`,`隨機買 ${tickets.toLocaleString('en-US')} 注約 ${pct(anyRand)}`,true]
+  ].map(([l,val,sub,h])=>`<div${h?' class="hl"':''}><small>${l}</small><strong>${val}</strong><em>${sub}</em></div>`).join('');
+  wheelLast=g.z2?z1c.flatMap(cb=>z2.map(z=>cb.map(x=>fmt(x,2)).join(' ')+' ＋ '+fmt(z,2))):z1c.map(cb=>cb.map(x=>fmt(x,2)).join(' '));
+  $('wheelListSum').textContent=`展開全部 ${wheelLast.length} 組`;
+  list.innerHTML=wheelLast.slice(0,300).map((x,i)=>`<div><span>${String(i+1).padStart(4,' ')}</span><b>${x}</b></div>`).join('');
+  $('wheelListWrap').hidden=false; $('wheelCopy').hidden=false; $('wheelCopied').textContent='';
+  window.__coverCheck={cond,condOk}; // 測試用：條件成立的模擬中，保證有沒有做到
+}
 function bindWheel(){ // 在頁面最後才呼叫（$ 定義之後）
+$('wheelMode').addEventListener('change',renderWheel);
 $('wheelNums').addEventListener('input',renderWheel);
 $('wheelZ2').addEventListener('input',renderWheel);
 $('wheelRand').onclick=()=>{
@@ -588,7 +675,7 @@ $('wheelRand').onclick=()=>{
   renderWheel();
 };
 $('wheelCopy').onclick=async()=>{
-  const txt=`${GAMES[cur].name} 包牌 ${wheelLast.length} 注\n`+wheelLast.map((t,i)=>`${i+1}. ${t}`).join('\n');
+  const txt=`${GAMES[cur].name} 包牌（${$('wheelMode').selectedOptions[0].text}）${wheelLast.length} 注\n`+wheelLast.map((t,i)=>`${i+1}. ${t}`).join('\n');
   try{await navigator.clipboard.writeText(txt);$('wheelCopied').textContent='已複製'}catch(e){$('wheelCopied').textContent='無法自動複製，請手動選取'}
 };
 }
@@ -817,10 +904,10 @@ function renderBudget(){
     const any=t.list.length===1?n/t.total:1-Math.pow(1-p,n); // 只有一種獎項時不同號碼互斥，直接相加
     return{id,n,any,jp:n*t.list[0][2]/t.total};
   });
-  // 3星／4星的「頭獎」其實是固定 5,000／50,000 元的正彩，不跟大樂透等的頭獎比
+  // 3星／4星的「頭獎」其實是固定 5,000／50,000 元的壹獎，不跟大樂透等的頭獎比
   const bestAny=Math.max(...rows.map(r=>r.any)), bestJp=Math.max(...rows.filter(r=>!GAMES[r.id].digits).map(r=>r.jp));
   $('cmpRows').innerHTML=rows.map(r=>{const dg=!!GAMES[r.id].digits;return`<tr class="${r.id===cur?'cur':''}"><td>${GAMES[r.id].name}</td><td>${PRICE[r.id]}</td><td>${r.n} 注</td>`+
-    (r.n?`<td class="${r.any===bestAny?'best':''}">${(TIERS[r.id].list.length>1&&r.n>1?'約 ':'')+pct(r.any)}</td><td class="${!dg&&r.jp===bestJp?'best':''}">${oneIn(r.jp)}${dg?'<br><span class="rule">正彩</span>':''}</td>`:'<td>—</td><td>—</td>')+'</tr>'}).join('');
+    (r.n?`<td class="${r.any===bestAny?'best':''}">${(TIERS[r.id].list.length>1&&r.n>1?'約 ':'')+pct(r.any)}</td><td class="${!dg&&r.jp===bestJp?'best':''}">${oneIn(r.jp)}${dg?'<br><span class="rule">壹獎</span>':''}</td>`:'<td>—</td><td>—</td>')+'</tr>'}).join('');
 }
 function oneIn(p){const x=1/p;return '1 / '+(x<100?x.toFixed(1):Math.round(x).toLocaleString('en-US'))}
 function pct(p){return (p>=0.01?(p*100).toFixed(1):(p*100).toPrecision(2))+'%'}
@@ -1002,10 +1089,17 @@ function renderNextDraw(){
   }
 }
 setInterval(renderNextDraw,30000);
+// 3星／4星：從個位往前數連續對中幾位。全中＝壹獎；只差最前面一位＝貳獎；再少一位、而且前面的位數都沒中＝參獎
+function digitPrize(D,mine,draw){
+  let c=0; for(let i=D-1;i>=0&&mine[i]===draw[i];i--)c++;
+  if(c===D)return '壹獎'; if(c===D-1)return '貳獎';
+  if(c===D-2&&mine.slice(0,D-c).every((v,i)=>v!==draw[i]))return '參獎';
+  return null;
+}
 // 一組號碼對一期開獎：回傳對中說明與獎項（沒中為 null）
 function matchSet(id,s,draw){
   const g=GAMES[id], nums=draw.numbers, sp=draw.special;
-  if(g.digits){const pos=s.z1.filter((v,j)=>v===nums[j]).length;return{hitTxt:`依序對中 ${pos} 位`,prize:pos===g.digits?'正彩':null}}
+  if(g.digits){return{hitTxt:`依序對中 ${s.z1.filter((v,j)=>v===nums[j]).length} 位`,prize:digitPrize(g.digits,s.z1,nums)}}
   const hits=s.z1.filter(v=>nums.includes(v));
   const spHit=sp!==null&&(id==='power'?s.z2[0]===sp:s.z1.includes(sp));
   return{hitTxt:`對中 ${hits.length} 個${hits.length?'（'+hits.map(v=>fmt(v,2)).join(' ')+'）':''}${spHit?'＋'+(id==='power'?'第二區':'特別號'):''}`,prize:prizeName(id,hits.length,spHit)};
@@ -1015,7 +1109,7 @@ const PRIZE_KEYS={
   lotto:{'頭獎':'jackpotAssign','貳獎':'secondAssign','參獎':'thirdAssign','肆獎':'fourthAssign','伍獎':'fifthAssign','陸獎':'sixthAssign','柒獎':'seventhAssign','普獎':'normalAssign'},
   power:{'頭獎':'super638JackpotAssign','貳獎':'super638SecondAssign','參獎':'super638ThirdAssign','肆獎':'super638FourthAssign','伍獎':'super638FifthAssign','陸獎':'super638SixthAssign','柒獎':'super638SeventhAssign','捌獎':'super638EighthAssign','玖獎':'super638NinthAssign','普獎':'super638NormalAssign'},
   d539:{'頭獎':'d539JackpotAssign','貳獎':'d539SecondAssign','參獎':'d539ThirdAssign','肆獎':'d539FourthAssign'},
-  s3:{'正彩':'lotto3DFirstAssign'}, s4:{'正彩':'lotto4DFirstAssign'}
+  s3:{'壹獎':'lotto3DFirstAssign','貳獎':'lotto3DSecondAssign','參獎':'lotto3DThirdAssign'}, s4:{'壹獎':'lotto4DFirstAssign','貳獎':'lotto4DSecondAssign','參獎':'lotto4DThirdAssign'}
 };
 const PRIZE_NAMES=new Set(Object.values(PRIZE_KEYS).flatMap(o=>Object.keys(o)));
 function prizesOf(id,raw){const o={};for(const[k,key]of Object.entries(PRIZE_KEYS[id]||{})){const v=Number(raw&&raw[key]&&raw[key].perPrize);if(Number.isFinite(v)&&v>=0)o[k]=v}return o}
@@ -1168,7 +1262,7 @@ function popLine(id){
 function renderRecIntro(){
   const g=GAMES[cur], t=TIERS[cur], p=t.list.reduce((a,x)=>a+x[2],0)/t.total;
   $('recIntro').innerHTML=g.digits
-    ?`${g.name}正彩獎金固定（不會跟人平分），每一組中獎機率都是 <b>${oneIn(p)}</b>，所以推薦就是隨機挑，沒有比較好的組合。`
+    ?`${g.name}獎金固定（不會跟人平分），每一組中獎機率都是 <b>${oneIn(p)}</b>，所以推薦就是隨機挑，沒有比較好的組合。`
     :`老實說：每一組中獎機率都一樣（任一獎 <b>${oneIn(p)}</b>、頭獎 <b>${oneIn(t.list[0][2]/t.total)}</b>），沒有組合比較容易中。我能幫你的是挑<b>比較少人會選</b>的號碼（避開熱門號碼、連號、上一期號碼），萬一中頭獎比較不用跟別人平分。`+popLine(cur);
   $('recMeta').textContent=g.name;
   renderRecScore();
@@ -1179,7 +1273,7 @@ async function doRecommend(){
   $('recOut').innerHTML=sets.map((s,i)=>`<div class="rec-set"><span class="idx">${String(i+1).padStart(2,'0')}</span>`+
     s.z1.map(v=>`<span class="ball sm">${g.digits?v:fmt(v,2)}</span>`).join('')+(s.z2.length?`<span class="sep">＋</span><span class="ball sm z2">${fmt(s.z2[0],2)}</span>`:'')+
     (g.digits?'':`<span class="pop">比較少人選</span><span class="why">${s.why.join('・')}</span>`)+'</div>').join('')+
-    `<p class="rec-note">這 ${sets.length} 組：至少中一個獎約 <b>${pct(t.list.length>1?1-Math.pow(1-p,sets.length):sets.length*p)}</b>，中${g.digits?'正彩':'頭獎'} <b>${oneIn(sets.length*t.list[0][2]/t.total)}</b>，要花 <b>${(sets.length*PRICE[id]).toLocaleString('en-US')}</b> 元。`+
+    `<p class="rec-note">這 ${sets.length} 組：至少中一個獎約 <b>${pct(t.list.length>1?1-Math.pow(1-p,sets.length):sets.length*p)}</b>，中${g.digits?'壹獎':'頭獎'} <b>${oneIn(sets.length*t.list[0][2]/t.total)}</b>，要花 <b>${(sets.length*PRICE[id]).toLocaleString('en-US')}</b> 元。`+
     (overCap()?'<b>提醒：這個月已經到你設的花費上限了。</b>':'')+
     (picksCol?'已自動存進「我存的號碼」（標示「推薦」），開獎後會對獎，下面的推薦成績也會更新。':'登入後推薦的號碼會自動存起來對獎。')+'</p>';
   if(!picksCol)return;
@@ -1246,7 +1340,8 @@ function evCalc(id,evd,popW){
     breakeven=(price-evOther)/(pJP*(1-EV_TAX)*share(1));
   }
   const ev=evOther+pJP*jp(1);
-  return{id,price,tickets,pool,fresh,carry,ev,base,ret:ev/price,baseRet:base/price,breakeven,evOther,
+  const table=[{name:tiers[0].name,p:pJP,net:jp(1)},...tiers.slice(1).map(x=>({name:x.name,p:x.p,net:net(avg(x.name))}))]; // 每個獎項：機率、扣稅後平均實拿
+  return{id,price,tickets,pool,fresh,carry,ev,base,table,ret:ev/price,baseRet:base/price,breakeven,evOther,
     jpAvg:jp(mult.avg),jpLeast:jp(mult.least),jpMost:jp(mult.most),lastWinners:d0.winners,pOther:1-Math.exp(-lam(1))};
 }
 function renderEV(){
@@ -1274,6 +1369,46 @@ function renderEV(){
   const log=aiData[cur]&&Array.isArray(aiData[cur].evLog)?aiData[cur].evLog.filter(x=>x&&Number.isFinite(Number(x.ret))).slice(-12):[];
   $('evLog').innerHTML=log.length?`<span class="lbl">每晚排程記錄的期望值：</span>`+log.map(x=>`<span class="chip" title="${String(x.madeAt||'').slice(0,10)}">第 ${(Number(x.afterPeriod)%1e6)+1} 期 ${Math.round(Number(x.ret)*100)}%</span>`).join(''):'';
 }
+// ---- 長期模擬：大數法則＋蒙地卡羅 ----
+function poisson(l){
+  if(l<=0)return 0;
+  if(l<30){const L=Math.exp(-l);let k=0,p=1;do{k++;p*=Math.random()}while(p>L);return k-1}
+  const z=Math.sqrt(-2*Math.log(Math.random()||1e-12))*Math.cos(2*Math.PI*Math.random()); // 次數多時用常態近似
+  return Math.max(0,Math.round(l+Math.sqrt(l)*z));
+}
+function prizeTableFor(id){
+  const g=GAMES[id];
+  if(g.digits){ // 3星／4星：獎金固定（最近幾期實際獎金平均，查不到用公告金額）
+    const FIX={s3:[5000,500,50],s4:[50000,5000,500]}[id], t=TIERS[id];
+    return{price:PRICE[id],table:t.list.map((x,i)=>{const v=((latest[id]&&latest[id].recent)||[]).map(d=>Number(d&&d.prizes&&d.prizes[x[0]])).filter(y=>y>0);
+      const amt=v.length?v.reduce((a,b)=>a+b)/v.length:FIX[i];return{name:x[0],p:x[2]/t.total,net:amt>5000?amt*(1-EV_TAX):amt}})};
+  }
+  const pd=popData(id), e=latest[id]&&evCalc(id,latest[id].evd,pd&&pd.w);
+  return e?{price:e.price,table:e.table}:null;
+}
+function runSim(){
+  const id=cur, g=GAMES[id], pt=prizeTableFor(id), out=$('simOut');
+  $('simMeta').textContent=g.name;
+  if(!pt){out.innerHTML='';$('simPct').innerHTML='';$('simSum').textContent='還沒有最新的獎金資料，稍後再試。';return}
+  const k=+$('simK').value, years=+$('simY').value, draws=DRAW_DAYS[id].length*52*years, T=draws*k, cost=T*pt.price, R=2000;
+  const res=new Float64Array(R); let jpRuns=0;
+  for(let r=0;r<R;r++){let w=0;pt.table.forEach((x,i)=>{const c=poisson(T*x.p);w+=c*x.net;if(i===0&&c>0)jpRuns++});res[r]=w-cost}
+  const sorted=Array.from(res).sort((a,b)=>a-b), q=f=>sorted[Math.min(R-1,Math.floor(f*R))];
+  const evPer=pt.table.reduce((a,x)=>a+x.p*x.net,0), mean=T*evPer-cost, win=sorted.filter(x=>x>=0).length/R, pJP=1-Math.exp(-T*pt.table[0].p);
+  const yuan=x=>(x<0?'虧 ':'賺 ')+Math.abs(Math.round(x)).toLocaleString('en-US')+' 元';
+  out.innerHTML=[
+    ['總共買',`${T.toLocaleString('en-US')} 注`,`${draws.toLocaleString('en-US')} 期 × ${k} 注`,false],
+    ['要花',`${cost.toLocaleString('en-US')} 元`,`每注 ${pt.price} 元`,true],
+    ['理論平均結果',yuan(mean),`每 ${pt.price} 元平均拿回 ${evPer.toFixed(1)} 元`,true],
+    ['最後有賺錢的人',pct(win),`中過${g.digits?'壹獎':'頭獎'}的人 ${pct(jpRuns/R)}（理論 ${pct(pJP)}）`,false]
+  ].map(([l,v,sub,h])=>`<div${h?' class="hl"':''}><small>${l}</small><strong>${v}</strong><em>${sub}</em></div>`).join('');
+  $('simPct').innerHTML=[[0.1,'運氣最差的 10%'],[0.5,'中間（一半的人比這差）'],[0.9,'運氣最好的 10%']].map(([f,l])=>`<div><span>${l}</span><b class="${q(f)>=0?'up':'down'}">${yuan(q(f))}</b></div>`).join('');
+  const loseRate=-q(0.5)/cost;
+  $('simSum').innerHTML=`<b>大數法則：</b>買得越久、越多注，結果就越接近「平均拿回 ${Math.round(evPer/pt.price*100)}%」。這次模擬中間那個人花了 ${cost.toLocaleString('en-US')} 元，虧掉約 <b>${Math.round(loseRate*100)}%</b>。`+
+    (win>=0.05?`有 ${pct(win)} 的人最後是賺的，幾乎都是靠中了一次大獎。`:win>0?`只有 ${pct(win)} 的人最後是賺的，都是靠中了比較大的獎。`:'模擬的 2,000 人裡，沒有人最後是賺的。')+
+    `<br><b>凱利公式：</b>每注平均拿回 ${evPer.toFixed(1)} 元，少於本金 ${pt.price} 元，數學上最佳的下注比例是 <b>0%</b>。想玩就把它當娛樂費，金額固定、不追加。`;
+}
+function bindSim(){$('simGo').onclick=runSim}
 // ---- 匯出／匯入存的號碼 ----
 const NATIVE=window.LottoApp||null; // Android App 提供的功能（網頁版沒有）
 const toolMsg=t=>{$('toolMsg').textContent=t};
@@ -1571,14 +1706,14 @@ function renderAvoid(){
   $('spread').checked=spread&&!off; $('spread').disabled=off; $('spreadWrap').classList.toggle('off',off);
   $('spreadHint').textContent=off?`${g.name}的位數可以重複，這個選項不適用（多組號碼一樣不會完全相同）`:'開多組時先用還沒出現過的號碼，「至少中一個獎」的機會會稍微高一點（平均中獎次數不變）';
   $('avoid').checked=avoid&&!off; $('avoid').disabled=off; $('avoidWrap').classList.toggle('off',off);
-  $('avoidHint').textContent=off?`${g.name}正彩獎金固定，不會跟別人平分，不需要避開`:'少選生日、連號、規則排列、照抄上一期，萬一中頭獎比較不會跟別人平分（中獎機率不變）';
+  $('avoidHint').textContent=off?`${g.name}獎金固定，不會跟別人平分，不需要避開`:'少選生日、連號、規則排列、照抄上一期，萬一中頭獎比較不會跟別人平分（中獎機率不變）';
   const on=[!off&&avoid&&'避開熱門',!off&&spread&&'不重疊'].filter(Boolean);
   $('optsSum').textContent=off?'更多選項（這個彩種不適用）':on.length?`更多選項（已開：${on.join('、')}）`:'更多選項（避開熱門、多組不重疊）';
 }
-function renderRule(){const g=GAMES[cur];$('rule').innerHTML=`<span><b>${g.name}</b></span><span>${g.rule}</span>`;renderAvoid();renderNextDraw();renderWheel();renderFreq();renderLab();renderRecIntro();$('recOut').innerHTML='';
+function renderRule(){const g=GAMES[cur];if($('simOut')&&$('simOut').innerHTML)setTimeout(runSim,0);$('rule').innerHTML=`<span><b>${g.name}</b></span><span>${g.rule}</span>`;renderAvoid();renderNextDraw();renderWheel();renderFreq();renderLab();renderRecIntro();$('recOut').innerHTML='';
   $('must').placeholder=g.digits?'例如 7（從第一位開始指定）':'例如 7 18';
   $('odds').innerHTML=g.odds.map(([l,v])=>`<div><small>${l}機率</small><strong>1 / ${v.toLocaleString('en-US')}</strong></div>`).join('')+
-    `<div><small>每期買 1 注、連買 1 年（約 ${DRAW_DAYS[cur].length*52} 期）中${g.digits?'正彩':'頭獎'}的機率</small><strong>約 1 / ${Math.round(g.odds[0][1]/(DRAW_DAYS[cur].length*52)).toLocaleString('en-US')}</strong></div>`}
+    `<div><small>每期買 1 注、連買 1 年（約 ${DRAW_DAYS[cur].length*52} 期）中${g.digits?'壹獎':'頭獎'}的機率</small><strong>約 1 / ${Math.round(g.odds[0][1]/(DRAW_DAYS[cur].length*52)).toLocaleString('en-US')}</strong></div>`}
 function renderHist(){
   if(!hist.length){$('hist').innerHTML='<div>按「重新選號」後，最近 8 次會留在這台裝置上。</div>';return}
   $('hist').innerHTML=hist.map(h=>{const d=new Date(h.t);const ts=`${d.getMonth()+1}/${d.getDate()} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
@@ -1589,7 +1724,7 @@ $('go').onclick=()=>run(true);
 bindWheel();
 bindLab();
 bindManual();
-bindIO(); bindCap();
+bindIO(); bindCap(); bindSim();
 $('recGo').onclick=doRecommend;
 // ---- 可安裝的 App（只在獨立網頁上；Claude 頁面不需要） ----
 if(!window.claude&&location.protocol==='https:'){
@@ -1616,7 +1751,7 @@ if(!window.claude&&location.protocol==='https:'){
 }
 // 跳轉按鈕：對應區塊隱藏時（例如 3星彩沒有包牌）按鈕也跟著藏起來
 // ---- 比較少用的區塊預設收合，只顯示標題和一句說明（展開狀態記在這台裝置） ----
-const FOLD={labBox:'7 種預測方法的回測、最近每一期的比對、AI 事先存好的預測',wheelBox:'輸入 7–16 個號碼，算包牌要幾注、花多少、中獎機率',budgetBox:'同樣的錢買不同彩種，哪個比較容易中',freqBox:'每個號碼歷年開出幾次，跟公平抽球比較'};
+const FOLD={labBox:'7 種預測方法的回測、最近每一期的比對、AI 事先存好的預測',wheelBox:'輸入 7–16 個號碼，算包牌要幾注、花多少、中獎機率',budgetBox:'同樣的錢買不同彩種，哪個比較容易中',simBox:'每期買幾注、連買幾年，模擬 2,000 個人最後賺賠的分布',freqBox:'每個號碼歷年開出幾次，跟公平抽球比較'};
 function bindFold(){
   let open=store('lucky.fold'); if(!open||typeof open!=='object')open={};
   for(const [id,hint] of Object.entries(FOLD)){
