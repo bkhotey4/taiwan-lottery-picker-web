@@ -79,6 +79,16 @@ h2{font-size:15px;margin:0;letter-spacing:.04em}
 .check input{width:18px;height:18px;accent-color:var(--pick);margin:0}
 .check small{flex:1 1 100%;font-weight:400;font-size:12px;color:var(--muted)}
 .check.off{opacity:.55;cursor:default}
+.cmp-wrap{overflow-x:auto}
+.cmp{width:100%;border-collapse:collapse;font-size:13px}
+.cmp th,.cmp td{text-align:right;padding:7px 6px;border-bottom:1px solid var(--line);white-space:nowrap;font-variant-numeric:tabular-nums}
+.cmp th{color:var(--muted);font-weight:500;font-size:12px}
+.cmp th:first-child,.cmp td:first-child{text-align:left;font-weight:700}
+.cmp td{font-family:var(--f-num)}
+.cmp td:first-child{font-family:var(--f-body)}
+.cmp tr.cur td{background:var(--bg)}
+.cmp td.best{color:var(--pick);font-weight:700}
+#budget{max-width:10em}
 .save{display:none;margin-left:auto;padding:5px 10px;font-size:12px}
 body.can-save .save{display:inline-block}
 .save:disabled{color:var(--pick);border-color:var(--pick);cursor:default}
@@ -134,6 +144,7 @@ body.can-save .save{display:inline-block}
       <button class="go" id="go">開獎</button>
     </div>
     <label class="check" id="avoidWrap"><input type="checkbox" id="avoid"> <span>避開熱門選法</span><small id="avoidHint">少選生日、連號、規則排列，萬一中頭獎比較不會跟別人平分（中獎機率不變）</small></label>
+    <label class="check" id="spreadWrap"><input type="checkbox" id="spread"> <span>多組號碼盡量不重疊</span><small id="spreadHint">開多組時先用還沒出現過的號碼，「至少中一個獎」的機會會稍微高一點（平均中獎次數不變）</small></label>
     <p class="msg" id="msg"></p>
     <div class="row">
       <button class="ghost" id="copy">複製這幾組</button>
@@ -153,6 +164,18 @@ body.can-save .save{display:inline-block}
     <div class="row"><h2>我存的號碼</h2><span class="rule" id="picksSum"></span></div>
     <div class="picks" id="picks"></div>
     <p class="note" id="picksNote">按號碼旁的「存這組」就會存在你的帳號裡，手機、電腦都看得到。開獎資料更新後，會自動對照存號碼之後的第一期（晚上 8 點後存的，算下一期）。</p>
+  </section>
+
+  <section class="slip" aria-label="預算比較">
+    <h2>同樣的預算，玩哪個比較容易中？</h2>
+    <label class="field">每期預算（元）
+      <input id="budget" type="number" min="25" max="100000" step="25" inputmode="numeric" value="100">
+    </label>
+    <div class="cmp-wrap"><table class="cmp">
+      <thead><tr><th>彩種</th><th>每注</th><th>可買</th><th>至少中一個獎</th><th>中頭獎</th></tr></thead>
+      <tbody id="cmpRows"></tbody>
+    </table></div>
+    <p class="note">每注號碼都不一樣時的機率。中獎機會越高的彩種，獎金通常越小；彩券平均拿回來的錢比花出去的少，買越多平均虧越多，先訂好預算再玩。3星／4星只算正彩。</p>
   </section>
 
   <section class="odds" id="odds" aria-label="頭獎機率"></section>
@@ -185,6 +208,20 @@ const TIERS={
   s3:{total:1000,list:[['正彩','3 位依序全中',1]],extra:'3星彩的組彩、對彩等是另外的下注玩法，這裡只算正彩。'},
   s4:{total:10000,list:[['正彩','4 位依序全中',1]],extra:'4星彩的組彩等是另外的下注玩法，這裡只算正彩。'}
 };
+// ---- 預算比較：每注價格（元） ----
+const PRICE={lotto:50,power:100,d539:50,s3:25,s4:25};
+function renderBudget(){
+  let b=Math.floor(Number($('budget').value)); if(!Number.isFinite(b)||b<0)b=0; b=Math.min(b,100000);
+  const rows=Object.keys(GAMES).map(id=>{
+    const t=TIERS[id], n=Math.min(Math.floor(b/PRICE[id]),t.total);
+    const p=t.list.reduce((a,x)=>a+x[2],0)/t.total;
+    const any=t.list.length===1?n/t.total:1-Math.pow(1-p,n); // 只有一種獎項時不同號碼互斥，直接相加
+    return{id,n,any,jp:n*t.list[0][2]/t.total};
+  });
+  const bestAny=Math.max(...rows.map(r=>r.any)), bestJp=Math.max(...rows.map(r=>r.jp));
+  $('cmpRows').innerHTML=rows.map(r=>`<tr class="${r.id===cur?'cur':''}"><td>${GAMES[r.id].name}</td><td>${PRICE[r.id]}</td><td>${r.n} 注</td>`+
+    (r.n?`<td class="${r.any===bestAny?'best':''}">${(TIERS[r.id].list.length>1&&r.n>1?'約 ':'')+pct(r.any)}</td><td class="${r.jp===bestJp?'best':''}">${oneIn(r.jp)}</td>`:'<td>—</td><td>—</td>')+'</tr>').join('');
+}
 function oneIn(p){const x=1/p;return '1 / '+(x<100?x.toFixed(1):Math.round(x).toLocaleString('en-US'))}
 function pct(p){return (p>=0.01?(p*100).toFixed(1):(p*100).toPrecision(2))+'%'}
 function renderChance(){
@@ -205,7 +242,7 @@ function renderChance(){
   }
   $('chance').innerHTML=cards.map(([l,v,s,h])=>`<div${h?' class="hl"':''}><small>${l}</small><strong>${v}</strong><em>${s}</em></div>`).join('');
   $('tierRows').innerHTML=t.list.map(([nm,d,c])=>`<tr><td>${nm}</td><td>${d}</td><td>${oneIn(c/t.total)}</td></tr>`).join('');
-  $('chanceNote').textContent=`這是開獎前的機率：不管選哪組號碼、有沒有指定必選號碼、有沒有避開熱門選法，機率都一樣。`+(n>1&&t.list.length>1?'「至少中一個獎」以各組獨立估算。':'')+(uniq<n?`這次有重複的號碼組，${top}只算 ${uniq} 組。`:'')+(t.extra||'');
+  $('chanceNote').textContent=`這是開獎前的機率：不管選哪組號碼、有沒有指定必選號碼、有沒有避開熱門選法，機率都一樣。`+(n>1&&t.list.length>1?(spread?'「至少中一個獎」以各組獨立估算，號碼不重疊時實際會再高一點。':'「至少中一個獎」以各組獨立估算。'):'')+(uniq<n?`這次有重複的號碼組，${top}只算 ${uniq} 組。`:'')+(t.extra||'');
 }
 function rnd(max){const a=new Uint32Array(1);const lim=Math.floor(0x100000000/max)*max;let v;do{crypto.getRandomValues(a);v=a[0]}while(v>=lim);return v%max}
 function pickUnique(n,max,must){const s=new Set(must);while(s.size<n)s.add(rnd(max)+1);return [...s]}
@@ -243,13 +280,36 @@ function isPopular(id,z1){
   const r=cleanDraw(latest[id]); if(r&&s.filter(v=>r.numbers.includes(v)).length>=4)return true;
   return false;
 }
-function draw(g,must){
+// ---- 多組號碼不重疊：先從這次還沒用過的號碼裡挑，用完再從頭 ----
+let spread=!!store('lucky.spread');
+function pickPrefer(n,max,must,used){
+  const s=new Set(must), all=()=>Array.from({length:max},(_,i)=>i+1).filter(v=>!s.has(v));
+  let free=all().filter(v=>!used.has(v));
+  while(s.size<n){if(!free.length)free=all();s.add(free.splice(rnd(free.length),1)[0])}
+  return [...s];
+}
+function draw(g,must,ctx){
   if(g.digits){return{z1:Array.from({length:g.digits},(_,i)=>i<must.length?must[i]:rnd(10)),z2:[],must:must.map((_,i)=>i)}}
-  let z1=pickUnique(g.z1.n,g.z1.max,must);
-  if(avoid){for(let t=0;t<500&&isPopular(cur,z1);t++)z1=pickUnique(g.z1.n,g.z1.max,must)} // 必選號碼本身違規時，最多重抽 500 次
+  const gen=()=>ctx&&ctx.spread?pickPrefer(g.z1.n,g.z1.max,must,ctx.used):pickUnique(g.z1.n,g.z1.max,must);
+  let z1=gen();
+  if(avoid){for(let t=0;t<500&&isPopular(cur,z1);t++)z1=gen()} // 必選號碼本身違規時，最多重抽 500 次
   if(g.sort)z1.sort((a,b)=>a-b);
-  const z2=g.z2?pickUnique(g.z2.n,g.z2.max,[]):[];
+  const z2=g.z2?(ctx&&ctx.spread?pickPrefer(g.z2.n,g.z2.max,[],ctx.used2):pickUnique(g.z2.n,g.z2.max,[])):[];
   return{z1,z2,must};
+}
+// 開 n 組：保證不會有兩組完全一樣；開了不重疊時記錄用過的號碼
+function drawSets(g,must,n){
+  const ctx={spread:spread&&!g.digits,used:new Set(),used2:new Set()}, keys=new Set(), out=[];
+  for(let i=0;i<n;i++){
+    let s; for(let t=0;t<50;t++){s=draw(g,must,ctx);if(!keys.has(asText(g,s)))break}
+    keys.add(asText(g,s)); out.push(s);
+    if(ctx.spread){
+      s.z1.forEach(v=>ctx.used.add(v)); s.z2.forEach(v=>ctx.used2.add(v));
+      if(ctx.used.size>g.z1.max-g.z1.n)ctx.used.clear();      // 剩下的號碼不夠一組了，重新一輪
+      if(g.z2&&ctx.used2.size>=g.z2.max)ctx.used2.clear();
+    }
+  }
+  return out;
 }
 function setHTML(g,s,i,anim){
   const mine=v=>g.digits?false:s.must.includes(v);
@@ -262,13 +322,14 @@ function setHTML(g,s,i,anim){
 function asText(g,s){const a=g.digits?s.z1.join(''):s.z1.map(v=>fmt(v,2)).join(' ');return s.z2.length?`${a} ＋ ${s.z2.map(v=>fmt(v,2)).join(' ')}`:a}
 function run(anim){
   const g=GAMES[cur]; const m=parseMust(g); $('msg').textContent=m.ok?'':m.err; if(!m.ok)return;
-  const n=+$('count').value; last=Array.from({length:n},()=>draw(g,m.list));
+  const n=+$('count').value; last=drawSets(g,m.list,n);
   $('sets').innerHTML=last.map((s,i)=>setHTML(g,s,i,anim)).join('');
   if(anim){hist.unshift({t:Date.now(),g:g.name,sets:last.map(s=>asText(g,s))}); hist=hist.slice(0,8); store('lucky.hist',hist); renderHist()}
   $('copied').textContent='';
   renderChance();
   renderLatest();
   renderSaveButtons();
+  renderBudget();
 }
 // ---- 最新一期開獎：資料由排程寫入頁面資料庫 results/<彩種> ----
 let latest={}, latestFailed=false;
@@ -447,6 +508,8 @@ async function standalone(){
 })();
 function renderAvoid(){
   const g=GAMES[cur], off=!!g.digits;
+  $('spread').checked=spread&&!off; $('spread').disabled=off; $('spreadWrap').classList.toggle('off',off);
+  $('spreadHint').textContent=off?`${g.name}的位數可以重複，這個選項不適用（多組號碼一樣不會完全相同）`:'開多組時先用還沒出現過的號碼，「至少中一個獎」的機會會稍微高一點（平均中獎次數不變）';
   $('avoid').checked=avoid&&!off; $('avoid').disabled=off; $('avoidWrap').classList.toggle('off',off);
   $('avoidHint').textContent=off?`${g.name}正彩獎金固定，不會跟別人平分，不需要避開`:'少選生日、連號、規則排列、照抄上一期，萬一中頭獎比較不會跟別人平分（中獎機率不變）';
 }
@@ -462,6 +525,9 @@ function renderHist(){
 function renderAll(anim){renderTabs();renderRule();run(anim)}
 $('go').onclick=()=>run(true);
 $('avoid').onchange=()=>{avoid=$('avoid').checked;store('lucky.avoid',avoid);run(true)};
+$('spread').onchange=()=>{spread=$('spread').checked;store('lucky.spread',spread);run(true)};
+{const sb=store('lucky.budget'); if(Number.isFinite(sb)&&sb>=0)$('budget').value=sb;}
+$('budget').addEventListener('input',()=>{renderBudget();const v=Math.floor(Number($('budget').value));if(Number.isFinite(v)&&v>=0)store('lucky.budget',v)});
 $('count').onchange=()=>run(true);
 $('must').addEventListener('keydown',e=>{if(e.key==='Enter')run(true)});
 $('clear').onclick=()=>{hist=[];store('lucky.hist',hist);renderHist()};
