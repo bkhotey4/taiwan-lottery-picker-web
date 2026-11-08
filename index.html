@@ -118,6 +118,23 @@ h2{font-size:15px;margin:0;letter-spacing:.04em}
   .jump a.main-link{display:none}
   .wrap>.col>section,.wrap>.col>p{scroll-margin-top:16px}
 }
+.cmp.lab td:nth-child(4){font-family:var(--f-body);font-size:12px}
+.cmp.lab td:first-child,.cmp.lab td:nth-child(4){white-space:normal;min-width:5.5em}
+.cmp.lab th,.cmp.lab td{padding-inline:4px}
+.cmp.lab td.good{color:var(--pick);font-weight:700}
+.cmp.lab td.bad{color:var(--accent);font-weight:700}
+.cmp.lab tr.base td{color:var(--muted);font-weight:400}
+.lab-h{font-size:13px;margin:4px 0 0;color:var(--muted);font-weight:500}
+.lab-ml{display:grid;grid-template-columns:repeat(auto-fit,minmax(110px,1fr));gap:6px;font-size:12px}
+.lab-ml div{background:var(--bg);border-radius:8px;padding:6px 8px}
+.lab-ml b{display:block;font-family:var(--f-num);font-size:14px;color:var(--ink)}
+.lab-ml p{grid-column:1/-1;margin:2px 0 0;font-size:13px;color:var(--ink)}
+.lab-preds{display:flex;flex-direction:column}
+.lab-preds .pr{display:flex;flex-wrap:wrap;align-items:center;gap:4px 6px;padding-block:6px;border-bottom:1px dashed var(--line)}
+.lab-preds .pr:last-child{border-bottom:0}
+.lab-preds .mname{font-size:12px;color:var(--muted);flex:1 1 100%}
+.lab-preds .save{display:inline-block}
+body:not(.can-save) .lab-preds .save{display:none}
 .cmp-wrap{overflow-x:auto}
 .cmp{width:100%;border-collapse:collapse;font-size:13px}
 .cmp th,.cmp td{text-align:right;padding:7px 6px;border-bottom:1px solid var(--line);white-space:nowrap;font-variant-numeric:tabular-nums}
@@ -173,6 +190,7 @@ body.can-save .save{display:inline-block}
   <nav class="jump" aria-label="跳到">
     <a href="#main" class="main-link">選號</a>
     <a href="#picksBox">我存的號碼</a>
+    <a href="#labBox">預測實驗</a>
     <a href="#wheelBox">包牌</a>
     <a href="#budgetBox">預算比較</a>
     <a href="#freqBox">歷年統計</a>
@@ -227,6 +245,21 @@ body.can-save .save{display:inline-block}
     <div class="row"><h2>我存的號碼</h2><span class="rule" id="picksSum"></span></div>
     <div class="picks" id="picks"></div>
     <p class="note" id="picksNote">按號碼旁的「存這組」就會存在你的帳號裡，手機、電腦都看得到。開獎資料更新後，會自動對照存號碼之後的第一期（晚上 8 點後存的，算下一期）。</p>
+  </section>
+
+  <section class="slip" id="labBox" aria-label="預測實驗室" hidden>
+    <div class="row"><h2>預測實驗室：這些方法真的猜得中嗎？</h2><span class="rule" id="labMeta"></span></div>
+    <p class="rule">每種方法都只用「開獎前」已知的資料猜下一期，開獎後對獎，一期一期累積成績，再跟理論上的隨機選號比較。機器學習模型每開一期就用結果調整一次。</p>
+    <div class="cmp-wrap"><table class="cmp lab">
+      <thead><tr><th>方法</th><th>平均對中</th><th>中獎比例</th><th>和隨機比</th></tr></thead>
+      <tbody id="labRows"></tbody>
+    </table></div>
+    <p class="freq-sum" id="labVerdict"></p>
+    <h3 class="lab-h">機器學習模型學到了什麼</h3>
+    <div class="lab-ml" id="labML"></div>
+    <h3 class="lab-h">下一期各方法的預測</h3>
+    <div class="lab-preds" id="labPreds"></div>
+    <p class="note">「和隨機比」用統計檢定：差距在 ±2 個標準差內代表跟隨機選號沒有分別。同時比很多種方法時，偶爾有一種剛好超過 2 也是正常的運氣。開獎是獨立隨機的，過去的號碼沒有可以學的規律，所以不要期待哪個方法長期贏過隨機。</p>
   </section>
 
   <section class="slip" id="wheelBox" aria-label="包牌試算">
@@ -426,6 +459,114 @@ document.querySelector('#freqBox').addEventListener('pointerover',e=>{
   h.nextElementSibling&&h.nextElementSibling.classList.add('on');
   $('freqTip').innerHTML=`${isZ2?'第二區 ':''}<b>${fmt(i+1,2)}</b> 號：<b>${v}</b> 次（理論平均 ${Number(st.expected).toFixed(0)} 次，${v>=st.expected?'多':'少'} ${Math.abs(v-st.expected).toFixed(0)} 次）`;
 });
+
+// ---- 預測實驗室：回測各種「預測方法」，跟隨機比較 ----
+let histData={};            // 彩種 → {rows:[[期別, 號碼…, 特別號／第二區]]}
+const labCache={};
+const LAB_WARM=50;          // 前 50 期只用來累積資料，不計成績
+const LAB_METHODS=[
+  {id:'rand',name:'隨機選號（對照組）'},
+  {id:'hot',name:'歷年熱門號'},
+  {id:'cold',name:'歷年冷門號'},
+  {id:'recent',name:'近 50 期熱門'},
+  {id:'due',name:'很久沒開（遺漏最多）'},
+  {id:'repeat',name:'照抄上一期'},
+  {id:'ml',name:'機器學習（每期學習）'}
+];
+const ML_FEATS=['基本傾向','近 10 期','近 50 期','歷年','遺漏期數'];
+function seeded(seed){let s=seed>>>0;return()=>{s=s+0x6D2B79F5|0;let t=Math.imul(s^s>>>15,1|s);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296}}
+function labDraws(id){
+  const g=GAMES[id], h=histData[id]; if(!h||!Array.isArray(h.rows))return null;
+  const map=new Map();
+  for(const r of h.rows){
+    if(!Array.isArray(r)||r.length<g.z1.n+1)continue;
+    const all=r.slice(1).map(Number), nums=all.slice(0,g.z1.n), sp=all.length>g.z1.n?all[g.z1.n]:null;
+    if(nums.every(v=>Number.isInteger(v)&&v>=1&&v<=g.z1.max))map.set(String(r[0]).replace(/\D/g,''),{period:String(r[0]).replace(/\D/g,''),nums,sp});
+  }
+  const lr=latest[id]; // 排程每晚更新的最近幾期，補上統計檔之後的新開獎
+  if(lr&&Array.isArray(lr.recent))lr.recent.map(cleanDraw).filter(Boolean).forEach(d=>{if(d.numbers.length===g.z1.n)map.set(d.period,{period:d.period,nums:d.numbers,sp:d.special})});
+  return [...map.values()].sort((a,b)=>Number(a.period)-Number(b.period));
+}
+function topN(max,n,score){ // 分數高的前 n 個號碼（同分取號碼小的）
+  const a=[];for(let v=1;v<=max;v++)a.push(v);
+  a.sort((x,y)=>score(y)-score(x)||x-y);return a.slice(0,n).sort((x,y)=>x-y);
+}
+function runLab(id){
+  const g=GAMES[id], draws=labDraws(id); if(!draws||draws.length<=LAB_WARM+10)return null;
+  const key=draws.length+':'+draws[draws.length-1].period; if(labCache[id]&&labCache[id].key===key)return labCache[id];
+  const n=g.z1.n, max=g.z1.max, base=n/max, z2max=id==='power'?8:0;
+  const all=new Array(max+1).fill(0), r10=new Array(max+1).fill(0), r50=new Array(max+1).fill(0), last=new Array(max+1).fill(-1);
+  const z2all=new Array(z2max+1).fill(0), z2r50=new Array(z2max+1).fill(0), z2last=new Array(z2max+1).fill(-1);
+  let w=[Math.log(base/(1-base)),0,0,0,0]; const LR=0.01;
+  const feats=(v,i)=>[1, r10[v]/Math.min(10,i||1)/base-1, r50[v]/Math.min(50,i||1)/base-1, i?all[v]/i/base-1:0, Math.min((i-(last[v]<0?0:last[v]))*base,5)-1];
+  const score=x=>w.reduce((s,wi,k)=>s+wi*x[k],0);
+  const z2pick=(m,i,prev)=>{ if(!z2max)return null;
+    const sc={hot:v=>z2all[v],cold:v=>-z2all[v],recent:v=>z2r50[v],due:v=>i-z2last[v],ml:v=>z2all[v]}[m];
+    if(m==='repeat')return prev?prev.sp:1;
+    return topN(z2max,1,sc)[0];
+  };
+  const pick=(m,i,prev,rng)=>{
+    if(m==='rand'){const s=new Set();while(s.size<n)s.add(1+Math.floor(rng()*max));return{z1:[...s].sort((a,b)=>a-b),z2:z2max?1+Math.floor(rng()*z2max):null}}
+    if(m==='repeat')return{z1:prev.nums.slice(),z2:z2pick(m,i,prev)};
+    const sc={hot:v=>all[v],cold:v=>-all[v],recent:v=>r50[v],due:v=>i-last[v],ml:v=>score(feats(v,i))}[m];
+    return{z1:topN(max,n,sc),z2:z2pick(m,i,prev)};
+  };
+  const res={}; LAB_METHODS.forEach(m=>res[m.id]={hits:0,prize:0,cnt:0,h1:0,c1:0,h2:0,c2:0});
+  const total=draws.length-LAB_WARM, half=LAB_WARM+Math.floor(total/2);
+  for(let i=0;i<draws.length;i++){
+    const d=draws[i], set=new Set(d.nums), prev=i?draws[i-1]:null;
+    if(i>=LAB_WARM){
+      const rng=seeded(Number(d.period)||i);
+      for(const m of LAB_METHODS){
+        const p=pick(m.id,i,prev,rng), k=p.z1.filter(v=>set.has(v)).length;
+        const spHit=id==='power'?p.z2===d.sp:id==='lotto'?p.z1.includes(d.sp):false;
+        const r=res[m.id]; r.hits+=k; r.cnt++; if(prizeName(id,k,spHit))r.prize++;
+        if(i<half){r.h1+=k;r.c1++}else{r.h2+=k;r.c2++}
+      }
+    }
+    // 機器學習：先用開獎前的特徵預測，再用這期結果更新權重（線上邏輯斯迴歸）
+    for(let v=1;v<=max;v++){const x=feats(v,i),pr=1/(1+Math.exp(-score(x))),y=set.has(v)?1:0;for(let k=0;k<w.length;k++)w[k]+=LR*(y-pr)*x[k]}
+    // 更新統計（給下一期用）
+    d.nums.forEach(v=>{all[v]++;r10[v]++;r50[v]++;last[v]=i});
+    if(i>=10)draws[i-10].nums.forEach(v=>r10[v]--);
+    if(i>=50)draws[i-50].nums.forEach(v=>r50[v]--);
+    if(z2max&&d.sp>=1&&d.sp<=z2max){z2all[d.sp]++;z2r50[d.sp]++;z2last[d.sp]=i;if(i>=50){const o=draws[i-50].sp;if(o>=1&&o<=z2max)z2r50[o]--}}
+  }
+  // 下一期的預測（用全部資料）
+  const N=draws.length, lastD=draws[N-1], nextRng=seeded((Number(lastD.period)||N)+1);
+  const next=LAB_METHODS.map(m=>({id:m.id,name:m.name,...pick(m.id,N,lastD,nextRng)}));
+  const t=TIERS[id], pAny=t.list.reduce((s,x)=>s+x[2],0)/t.total;
+  const expHits=n*n/max, varHits=n*base*((max-n)/max)*((max-n)/(max-1));
+  const rows=LAB_METHODS.map(m=>{const r=res[m.id],avg=r.hits/r.cnt,pr=r.prize/r.cnt;
+    return{...m,avg,pr,z:(avg-expHits)/Math.sqrt(varHits/r.cnt),zp:(pr-pAny)/Math.sqrt(pAny*(1-pAny)/r.cnt),a1:r.h1/r.c1,a2:r.h2/r.c2}});
+  return labCache[id]={key,id,draws:N,tested:total,from:draws[LAB_WARM].period,to:lastD.period,expHits,pAny,rows,next,w:w.slice()};
+}
+function renderLab(){
+  const box=$('labBox'), g=GAMES[cur];
+  if(g.digits){box.hidden=true;return}
+  const L=runLab(cur); if(!L){box.hidden=true;return}
+  box.hidden=false;
+  $('labMeta').textContent=`回測 ${L.tested.toLocaleString('en-US')} 期`;
+  const judge=z=>Math.abs(z)<2?['跟隨機差不多','']:z>0?['比隨機好（可能是運氣）','good']:['比隨機差（可能是運氣）','bad'];
+  $('labRows').innerHTML=`<tr class="base"><td>理論值（隨機）</td><td>${L.expHits.toFixed(3)}</td><td>${pct(L.pAny)}</td><td>—</td></tr>`+
+    L.rows.map(r=>{const z=Math.abs(r.z)>=Math.abs(r.zp)?r.z:r.zp,[t,c]=judge(z);return`<tr><td>${r.name}</td><td>${r.avg.toFixed(3)}</td><td>${pct(r.pr)}</td><td class="${c}">${t}<br><span class="rule">差 ${z>=0?'+':''}${z.toFixed(1)} 個標準差</span></td></tr>`}).join('');
+  const off=L.rows.filter(r=>Math.max(Math.abs(r.z),Math.abs(r.zp))>=2);
+  const best=[...L.rows].sort((a,b)=>b.avg-a.avg)[0];
+  $('labVerdict').innerHTML=off.length===0
+    ?`<b>結論：</b>${L.rows.length} 種方法都跟隨機選號沒有明顯差別。平均對中最多的是「${best.name}」（${best.avg.toFixed(3)} 個），但跟理論值 ${L.expHits.toFixed(3)} 的差距在隨機範圍內。`
+    :`<b>結論：</b>有 ${off.length} 種方法超過 2 個標準差（${off.map(r=>'「'+r.name+'」').join('、')}）。同時比 ${L.rows.length} 種方法、兩個指標時，偶爾出現一兩個這樣的結果本來就常見，要看之後幾百期還能不能維持才算數。`;
+  const ml=L.rows.find(r=>r.id==='ml');
+  let bi=1; for(let k=2;k<L.w.length;k++)if(Math.abs(L.w[k])>Math.abs(L.w[bi]))bi=k;
+  const big=Math.abs(L.w[bi]), mlOk=Math.max(Math.abs(ml.z),Math.abs(ml.zp))<2;
+  $('labML').innerHTML=L.w.map((v,k)=>`<div>${ML_FEATS[k]}<b>${v>=0?'+':''}${v.toFixed(3)}</b></div>`).join('')+
+    `<p>「基本傾向」只是反映每個號碼本來就有 ${pct(GAMES[cur].z1.n/GAMES[cur].z1.max)} 的機會開出。`+
+    (big<0.1?'其他權重都很接近 0，模型找不到「近期、歷年、遺漏」跟下一期有關的規律。'
+            :`其他權重裡最大的是「${ML_FEATS[bi]}」（${L.w[bi].toFixed(3)}），模型一直在追逐過去的波動，`)+
+    (mlOk?(big<0.1?'實際成績也跟隨機一樣。':'但實際成績跟隨機一樣。'):'成績和隨機有一點差距，但在同時比很多方法時不算顯著。')+
+    `學習前半段平均對中 ${ml.a1.toFixed(3)} 個、後半段 ${ml.a2.toFixed(3)} 個（理論值 ${L.expHits.toFixed(3)}），學越久也沒有變準。</p>`;
+  $('labPreds').innerHTML=L.next.map((p,i)=>`<div class="pr"><span class="mname">${p.name}</span>${p.z1.map(v=>`<span class="ball sm">${fmt(v,2)}</span>`).join('')}${p.z2?`<span class="sep">＋</span><span class="ball sm z2">${fmt(p.z2,2)}</span>`:''}<button type="button" class="ghost save" data-pred="${i}">存這組</button></div>`).join('');
+  renderSaveButtons();
+}
 
 // ---- 預算比較：每注價格（元） ----
 const PRICE={lotto:50,power:100,d539:50,s3:25,s4:25};
@@ -680,6 +821,20 @@ function renderSaveButtons(){
   const saved=new Set(picks.map(p=>pickKey(p.game,p.z1,p.z2)));
   document.querySelectorAll('#sets .save').forEach(b=>{const s=last[+b.dataset.i];if(!s)return;
     const done=saved.has(pickKey(cur,s.z1,s.z2));b.disabled=done;b.textContent=done?'已存':'存這組'});
+  const L=labCache[cur];
+  document.querySelectorAll('#labPreds .save').forEach(b=>{const p=L&&L.next[+b.dataset.pred];if(!p)return;
+    const done=saved.has(pickKey(cur,p.z1,p.z2?[p.z2]:[]));b.disabled=done;b.textContent=done?'已存':'存這組'});
+}
+function bindLab(){ // 預測實驗室的「存這組」
+  $('labPreds').addEventListener('click',async e=>{
+    const b=e.target.closest('.save'); if(!b||!picksCol||b.disabled)return;
+    const L=labCache[cur], p=L&&L.next[+b.dataset.pred]; if(!p)return;
+    if(picks.length>=MAX_PICKS){$('msg').textContent=`最多存 ${MAX_PICKS} 組，先刪掉一些舊的`;return}
+    b.disabled=true; b.textContent='存檔中…';
+    const r=latest[cur];
+    try{await picksCol.doc().set({game:cur,z1:p.z1.slice(),z2:p.z2?[p.z2]:[],createdAt:new Date().toISOString(),afterPeriod:r&&r.period!=null?String(r.period):null})}
+    catch(err){b.disabled=false;b.textContent='存這組'}
+  });
 }
 $('sets').addEventListener('click',async e=>{
   const b=e.target.closest('.save'); if(!b||!picksCol||b.disabled)return;
@@ -737,10 +892,11 @@ async function standalone(){
   $('picksNote').textContent='按號碼旁的「存這組」就會存在這台裝置的瀏覽器裡（換裝置或清除瀏覽資料就不見）。每次打開頁面都會抓最新開獎，自動對照存號碼之後的第一期（晚上 8 點後存的，算下一期）。';
   reloadLocalPicks();
   fetch('stats.json',{cache:'no-cache'}).then(r=>r.ok?r.json():null).then(j=>{if(j){stats=j;renderFreq()}}).catch(()=>{}); // 和網頁放在一起的歷年統計
+  fetch('history.json',{cache:'no-cache'}).then(r=>r.ok?r.json():null).then(j=>{if(j&&typeof j==='object'){histData=j;renderLab()}}).catch(()=>{}); // 每期號碼（預測實驗室）
   const ids=Object.keys(TL_SRC), res=await Promise.allSettled(ids.map(fetchGame));
   res.forEach((r,i)=>{if(r.status==='fulfilled'&&r.value)latest[ids[i]]=r.value});
   latestFailed=!Object.keys(latest).length;
-  renderLatest(); renderPicks();
+  renderLatest(); renderPicks(); renderLab();
 }
 
 (async()=>{
@@ -751,9 +907,10 @@ async function standalone(){
   db.collection('results').onSnapshot(snap=>{
     if(!snap.metadata.fromCache)clearTimeout(timer);
     const next={}; snap.docs.forEach(d=>{if(d.exists&&GAMES[d.id])next[d.id]=d.data()});
-    latest=next; latestFailed=false; renderLatest(); renderPicks();
+    latest=next; latestFailed=false; renderLatest(); renderPicks(); renderLab();
   },()=>{clearTimeout(timer);latestFailed=!Object.keys(latest).length;renderLatest()});
   db.doc('stats/all').onSnapshot(d=>{if(d.exists){stats=d.data();renderFreq()}},()=>{});
+  ['lotto','power','d539'].forEach(id=>db.doc('history/'+id).onSnapshot(d=>{if(d.exists){histData[id]=d.data();if(id===cur)renderLab()}},()=>{}));
   // 存號碼要知道是誰（沒登入就不提供）
   let uid=null; try{const user=await window.claude.use('user'); uid=user?await user.id():null}catch(e){}
   if(!uid)return;
@@ -773,7 +930,7 @@ function renderAvoid(){
   $('avoid').checked=avoid&&!off; $('avoid').disabled=off; $('avoidWrap').classList.toggle('off',off);
   $('avoidHint').textContent=off?`${g.name}正彩獎金固定，不會跟別人平分，不需要避開`:'少選生日、連號、規則排列、照抄上一期，萬一中頭獎比較不會跟別人平分（中獎機率不變）';
 }
-function renderRule(){const g=GAMES[cur];$('rule').innerHTML=`<span><b>${g.name}</b></span><span>${g.rule}</span>`;renderAvoid();renderNextDraw();renderWheel();renderFreq();
+function renderRule(){const g=GAMES[cur];$('rule').innerHTML=`<span><b>${g.name}</b></span><span>${g.rule}</span>`;renderAvoid();renderNextDraw();renderWheel();renderFreq();renderLab();
   $('must').placeholder=g.digits?'例如 7（從第一位開始指定）':'例如 7 18';
   $('odds').innerHTML=g.odds.map(([l,v])=>`<div><small>${l}機率</small><strong>1 / ${v.toLocaleString('en-US')}</strong></div>`).join('')+
     `<div><small>每期買 1 注、連買 1 年（約 104 期）中頭獎的機率</small><strong>約 1 / ${Math.round(g.odds[0][1]/104).toLocaleString('en-US')}</strong></div>`}
@@ -785,6 +942,7 @@ function renderHist(){
 function renderAll(anim){renderTabs();renderRule();run(anim)}
 $('go').onclick=()=>run(true);
 bindWheel();
+bindLab();
 // ---- 可安裝的 App（只在獨立網頁上；Claude 頁面不需要） ----
 if(!window.claude&&location.protocol==='https:'){
   const head=document.head||document.documentElement;
