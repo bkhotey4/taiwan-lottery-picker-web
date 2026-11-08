@@ -254,6 +254,11 @@ body.can-save .save{display:inline-block}
 .io .msg:empty{display:none}
 .news{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:8px;background:var(--paper);border:2px solid var(--accent);border-radius:12px;padding:10px 14px;font-size:14px}
 .news b{font-family:var(--f-num);color:var(--accent)}
+.news.due{border-color:var(--pick)}
+.news.due b{color:var(--pick)}
+.ck-out p{margin:8px 0 0;font-size:13px;line-height:1.6}
+.ck-out b{font-family:var(--f-num)}
+.ck-nums{font-family:var(--f-num);font-size:18px!important;font-weight:700;letter-spacing:.05em}
 .news-btns{display:flex;gap:6px}
 .news-btns .ghost{padding:5px 10px;font-size:12px}
 .manual{background:var(--bg);border-radius:10px;padding:10px 12px}
@@ -296,6 +301,7 @@ body.can-save .save{display:inline-block}
     <a href="#main" class="main-link">選號</a>
     <a href="#recBox">幫我挑</a>
     <a href="#evBox">值不值得買</a>
+    <a href="#checkBox">查號碼</a>
     <a href="#picksBox">我存的號碼</a>
     <a href="#labBox">預測實驗</a>
     <a href="#wheelBox">包牌</a>
@@ -305,6 +311,7 @@ body.can-save .save{display:inline-block}
     <a href="#histBox">選號紀錄</a>
   </nav>
 
+  <div class="news due" id="dueBar" hidden role="status"><span id="dueText"></span></div>
   <div class="news" id="newsBar" hidden role="status">
     <span id="newsText"></span>
     <span class="news-btns"><button type="button" class="ghost" id="newsGo">看結果</button><button type="button" class="ghost" id="newsOk">知道了</button></span>
@@ -377,6 +384,21 @@ body.can-save .save{display:inline-block}
     <div class="ev-body" id="evBody"></div>
     <div class="ev-log" id="evLog"></div>
     <p class="note">中獎機率每期都一樣，會變的是獎金：頭獎累積越多，平均拿回越多。小獎用最近幾期實際獎金平均，頭獎用台彩公布的累積金額與銷售額估計，超過 5,000 元扣 20% 所得稅。只是估計，實際以官方公告為準。</p>
+  </section>
+
+  <section class="slip" id="checkBox" aria-label="查我的號碼">
+    <div class="row"><h2>查我的號碼</h2><span class="rule" id="ckMeta"></span></div>
+    <div class="controls">
+      <label class="field grow">你的號碼
+        <input id="ckNums" inputmode="numeric" placeholder="例如 3 10 19 27 33 38">
+      </label>
+      <label class="field" id="ckZ2Wrap" hidden>第二區
+        <input id="ckZ2" inputmode="numeric" placeholder="例如 5" size="4">
+      </label>
+      <button type="button" class="ghost" id="ckGo">查詢</button>
+    </div>
+    <p class="msg" id="ckMsg"></p>
+    <div class="ck-out" id="ckOut"></div>
   </section>
 
   <section class="slip" id="picksBox" hidden>
@@ -821,7 +843,7 @@ function runLab(id){
   return labCache[id]={key,id,draws:N,tested:total,from:draws[LAB_WARM].period,to:lastD.period,expHits,pAny,rows,next,w:w.slice(),log:Object.values(logs).reverse()};
 }
 // ---- AI 事先存好的預測：資料由 Claude 每晚排程（scripts/ai-predict.mjs）寫入 ai/<彩種> ----
-let aiData={};
+let aiData={}, aiPredList=[];
 function renderAI(){
   const box=$('aiBox'), a=aiData[cur], g=GAMES[cur];
   if(!a||typeof a!=='object'||g.digits){box.hidden=true;return}
@@ -831,7 +853,9 @@ function renderAI(){
   const when=iso=>{const t=Date.parse(iso);if(!Number.isFinite(t))return '';const d=new Date(t+8*3600e3);return `${d.getUTCMonth()+1}/${d.getUTCDate()} ${String(d.getUTCHours()).padStart(2,'0')}:${String(d.getUTCMinutes()).padStart(2,'0')}`};
   const pd=a.pending, pp=pd&&Array.isArray(pd.preds)?pd.preds.filter(p=>nm(p.id)):[];
   $('aiPending').innerHTML=pp.length?`下一期的預測已在 <b>${when(pd.madeAt)}</b> 存好（第 ${N(pd.afterPeriod)%1e6} 期之後的第一期，用了 ${(N(pd.learned)||0).toLocaleString('en-US')} 期資料）。開獎後排程會自動對獎，有結果就通知你。`:'下一期的預測還沒存，排程下次執行時會存。';
-  $('aiPreds').innerHTML=pp.map(p=>`<div class="pr"><span class="mname">${nm(p.id)}</span>${nums(p.z1).map(v=>`<span class="ball sm">${fmt(v,2)}</span>`).join('')}${N(p.z2)?`<span class="sep">＋</span><span class="ball sm z2">${fmt(N(p.z2),2)}</span>`:''}</div>`).join('');
+  aiPredList=pp.map(p=>({z1:nums(p.z1).sort((a,b)=>a-b),z2:N(p.z2)?[N(p.z2)]:[]}));
+  $('aiPreds').innerHTML=pp.map((p,i)=>`<div class="pr"><span class="mname">${nm(p.id)}</span>${nums(p.z1).map(v=>`<span class="ball sm">${fmt(v,2)}</span>`).join('')}${N(p.z2)?`<span class="sep">＋</span><span class="ball sm z2">${fmt(N(p.z2),2)}</span>`:''}<button type="button" class="ghost save" data-ai="${i}">存這組</button></div>`).join('');
+  renderSaveButtons();
   const ms=(Array.isArray(a.methods)?a.methods:[]).filter(m=>nm(m.id)), n=ms.length?N(ms[0].n)||0:0, exp=Number(a.expHits)||0, pAny=Number(a.pAny)||0;
   const money=v=>(N(v)||0).toLocaleString('en-US');
   $('aiRows').innerHTML=n?`<tr class="base"><td>理論值（隨機）</td><td>${n} 期</td><td>${exp.toFixed(2)}</td><td>約 ${(n*pAny).toFixed(1)}</td><td>—</td></tr>`+
@@ -1199,6 +1223,8 @@ function renderSaveButtons(){
   const saved=pendingKeys();
   document.querySelectorAll('#sets .save').forEach(b=>{const s=last[+b.dataset.i];if(!s)return;
     const done=saved.has(pickKey(cur,s.z1,s.z2));b.disabled=done;b.textContent=done?'已存':'存這組'});
+  document.querySelectorAll('#aiPreds .save').forEach(b=>{const p=aiPredList[+b.dataset.ai];if(!p)return;
+    const done=saved.has(pickKey(cur,p.z1,p.z2));b.disabled=done;b.textContent=done?'已存':'存這組'});
   const L=labCache[cur];
   document.querySelectorAll('#labPreds .save').forEach(b=>{const p=L&&L.next[+b.dataset.pred];if(!p)return;
     const done=saved.has(pickKey(cur,p.z1,p.z2?[p.z2]:[]));b.disabled=done;b.textContent=done?'已存':'存這組'});
@@ -1342,7 +1368,7 @@ function evCalc(id,evd,popW){
   const ev=evOther+pJP*jp(1);
   const table=[{name:tiers[0].name,p:pJP,net:jp(1)},...tiers.slice(1).map(x=>({name:x.name,p:x.p,net:net(avg(x.name))}))]; // 每個獎項：機率、扣稅後平均實拿
   return{id,price,tickets,pool,fresh,carry,ev,base,table,ret:ev/price,baseRet:base/price,breakeven,evOther,
-    jpAvg:jp(mult.avg),jpLeast:jp(mult.least),jpMost:jp(mult.most),lastWinners:d0.winners,pOther:1-Math.exp(-lam(1))};
+    jpAt:m=>jp(m),jpAvg:jp(mult.avg),jpLeast:jp(mult.least),jpMost:jp(mult.most),lastWinners:d0.winners,pOther:1-Math.exp(-lam(1))};
 }
 function renderEV(){
   const box=$('evBox'), g=GAMES[cur]; if(!box)return;
@@ -1368,6 +1394,59 @@ function renderEV(){
   // 每晚排程記錄的期望值走勢（ai.json）
   const log=aiData[cur]&&Array.isArray(aiData[cur].evLog)?aiData[cur].evLog.filter(x=>x&&Number.isFinite(Number(x.ret))).slice(-12):[];
   $('evLog').innerHTML=log.length?`<span class="lbl">每晚排程記錄的期望值：</span>`+log.map(x=>`<span class="chip" title="${String(x.madeAt||'').slice(0,10)}">第 ${(Number(x.afterPeriod)%1e6)+1} 期 ${Math.round(Number(x.ret)*100)}%</span>`).join(''):'';
+}
+// ---- 查我的號碼 ----
+let ckLast=null;
+function parseSet(id,rawNums,rawZ2){ // 回傳 {z1,z2} 或 {err}
+  const g=GAMES[id];
+  if(g.digits){const d=String(rawNums).replace(/\D/g,'');if(d.length!==g.digits)return{err:`${g.name}要輸入 ${g.digits} 位數字（目前 ${d.length} 位）`};return{z1:d.split('').map(Number),z2:[]}}
+  const a=parseNums(rawNums,g.z1.max);
+  if(a.bad)return{err:`號碼要在 01–${fmt(g.z1.max,2)} 之間`};
+  if(a.list.length!==g.z1.n)return{err:`${g.name}要剛好 ${g.z1.n} 個不同的號碼（目前 ${a.list.length} 個）`};
+  let z2=[]; if(g.z2){const b=parseNums(rawZ2,g.z2.max);if(b.bad||b.list.length!==1)return{err:'第二區要輸入 1 個號碼（01–08）'};z2=b.list}
+  return{z1:a.list.sort((x,y)=>x-y),z2};
+}
+function syncCheck(){
+  const g=GAMES[cur]; $('ckMeta').textContent=g.name; $('ckZ2Wrap').hidden=!g.z2;
+  $('ckNums').placeholder=g.digits?`${g.digits} 位數，例如 ${'4729'.slice(0,g.digits)}`:`${g.z1.n} 個號碼，例如 ${[3,10,19,27,33,38].slice(0,g.z1.n).map(v=>fmt(v,2)).join(' ')}`;
+  if(ckLast&&ckLast.id!==cur){$('ckOut').innerHTML='';$('ckMsg').textContent='';ckLast=null}
+}
+function runCheck(){
+  const id=cur, g=GAMES[id], r=parseSet(id,$('ckNums').value,$('ckZ2').value), out=$('ckOut');
+  $('ckMsg').textContent=r.err||''; if(r.err){out.innerHTML='';return}
+  ckLast={id,...r};
+  const t=TIERS[id], pAny=t.list.reduce((a,x)=>a+x[2],0)/t.total, parts=[];
+  const nums=g.digits?r.z1.join(''):r.z1.map(v=>fmt(v,2)).join(' ')+(r.z2.length?' ＋ '+fmt(r.z2[0],2):'');
+  parts.push(`<p class="ck-nums">${nums}</p>`);
+  parts.push(`<p>中獎機率跟任何一組都一樣：任一獎 <b>${oneIn(pAny)}</b>，${t.list[0][0]} <b>${oneIn(t.list[0][2]/t.total)}</b>。</p>`);
+  if(!g.digits){
+    const pd=popData(id);
+    if(pd){
+      const m=Math.exp(r.z1.reduce((a,v)=>a+Math.log(1+pd.w[v-1]/100),0)), d=Math.round((m-1)*100);
+      parts.push(`<p>依中獎人數推算，選這些號碼的人比平均<b>${d<0?'少':'多'}約 ${Math.abs(d)}%</b>`+(isPopular(id,r.z1)?'；而且這組像很多人會選的排法（生日號碼、連號、等差、同尾數或照抄上一期）。':'。')+'</p>');
+      const e=latest[id]&&evCalc(id,latest[id].evd,pd.w);
+      if(e)parts.push(`<p>這期萬一中頭獎，平均實拿（扣稅、算進平分）約 <b>${money(e.jpAt(m))}</b>（一般組合約 ${money(e.jpAvg)}）。</p>`);
+    }
+    const bt=backtestHTML(id,r);
+    parts.push(bt?`<h3 class="lab-h">如果從第一期開始每期都買這組</h3>${bt}`:'<p class="rule">歷年開獎資料還沒載入，稍後再查一次。</p>');
+  }else parts.push(`<p class="rule">${t.extra}</p>`);
+  parts.push(`<div class="row"><button type="button" class="ghost" id="ckSave">存這組（開獎後自動對獎）</button><span class="rule" id="ckSaved"></span></div>`);
+  out.innerHTML=parts.join('');
+  $('ckSave').hidden=!picksCol;
+  $('ckSave').onclick=async()=>{$('ckSaved').textContent=await savePick(id,r.z1,r.z2,{manual:true})};
+}
+// 共用的「存這組」：回傳給使用者看的結果文字
+async function savePick(id,z1,z2,extra){
+  if(!picksCol)return '目前沒辦法存號碼';
+  if(pendingKeys().has(pickKey(id,z1,z2)))return '這組號碼已經存了，還沒開獎';
+  if(picks.length>=MAX_PICKS)return `最多存 ${MAX_PICKS} 組，先刪掉一些舊的`;
+  const r=latest[id];
+  try{await picksCol.doc().set({game:id,z1:z1.slice(),z2:z2.slice(),createdAt:new Date().toISOString(),afterPeriod:r&&r.period!=null?String(r.period):null,...(extra||{})});return '已存起來，開獎後會自動對獎'}
+  catch(err){return err&&err.message==='storage'?'這個瀏覽器不讓網頁存資料（可能是無痕模式），沒辦法存號碼':'存不起來，稍後再試一次'}
+}
+function bindCheck(){
+  $('ckGo').onclick=runCheck;
+  [$('ckNums'),$('ckZ2')].forEach(el=>el.addEventListener('keydown',e=>{if(e.key==='Enter')runCheck()}));
 }
 // ---- 長期模擬：大數法則＋蒙地卡羅 ----
 function poisson(l){
@@ -1487,7 +1566,22 @@ function syncNative(){
   try{NATIVE.savePicks(j)}catch(e){}
 }
 // ---- 開獎結果提示：上次打開之後才開獎的號碼 ----
+// 開獎日提醒：今天有開獎、而且有存的號碼等今晚開獎時，提醒 20:00 停售
+function renderDue(){
+  const bar=$('dueBar'); if(!bar)return;
+  if(!picksReady){bar.hidden=true;return}
+  const t=new Date(Date.now()+8*3600e3), mins=t.getUTCHours()*60+t.getUTCMinutes(), wd=t.getUTCDay();
+  if(mins>=20*60+30){bar.hidden=true;return}
+  const cnt={}; picks.forEach(p=>{if(drawForPick(p).state==='pending'&&DRAW_DAYS[p.game].includes(wd))cnt[p.game]=(cnt[p.game]||0)+1});
+  const ids=Object.keys(cnt); if(!ids.length){bar.hidden=true;return}
+  const total=ids.reduce((a,k)=>a+cnt[k],0), list=ids.map(k=>`${GAMES[k].name} ${cnt[k]} 組`).join('、');
+  $('dueText').innerHTML=mins<20*60?`<b>今晚開獎：</b>你存的 ${total} 組號碼（${list}）今晚 20:30 開獎，<b>20:00 停售</b>，還沒買記得去買。`
+    :`<b>已停售：</b>你存的 ${total} 組號碼（${list}）今晚 20:30 開獎，開獎後打開頁面就會自動對獎。`;
+  bar.hidden=false;
+}
+setInterval(renderDue,60000);
 function renderNews(){
+  renderDue();
   if(!picksReady||!Object.keys(latest).length)return;
   if(picks.some(p=>!GAMES[p.game].digits&&!histData[p.game]))return; // 等歷年資料載入完，舊號碼才對得到正確期別
   const drawn=picks.map(p=>({p,st:drawForPick(p)})).filter(x=>x.st.state==='drawn');
@@ -1541,6 +1635,12 @@ function bindManual(){
   [$('mNums'),$('mZ2')].forEach(el=>el.addEventListener('keydown',e=>{if(e.key==='Enter')save()}));
 }
 function bindLab(){ // 預測實驗室的「存這組」
+  $('aiPreds').addEventListener('click',async e=>{
+    const b=e.target.closest('.save'); if(!b||b.disabled)return;
+    const p=aiPredList[+b.dataset.ai]; if(!p)return;
+    b.disabled=true; b.textContent='存檔中…';
+    const m=await savePick(cur,p.z1,p.z2); if(!m.startsWith('已存')){b.disabled=false;b.textContent='存這組';$('msg').textContent=m}
+  });
   $('labPreds').addEventListener('click',async e=>{
     const b=e.target.closest('.save'); if(!b||!picksCol||b.disabled)return;
     const L=labCache[cur], p=L&&L.next[+b.dataset.pred]; if(!p)return;
@@ -1565,19 +1665,22 @@ function backtest(id,s){
   return{n:ds.length,wins,cnt,best,maxRun,exp:ds.length*p,sd:Math.sqrt(ds.length*p*(1-p)),first:ds[0].period};
 }
 const rocYear=pd=>Math.floor(Number(pd)/1e6)+1911;
-function showBacktest(i){
-  const g=GAMES[cur], s=last[i], box=$('backOut'); if(!s)return;
-  const r=backtest(cur,s); box.hidden=false;
-  if(!r){box.innerHTML='<p class="rule">歷年開獎資料還沒載入，稍後再按一次。</p>';return}
-  const nums=s.z1.map(v=>fmt(v,2)).join(' ')+(s.z2.length?' ＋ '+fmt(s.z2[0],2):'');
+function backtestHTML(id,s){ // 歷年回測的說明（沒有資料時回傳 null）
+  const r=backtest(id,s); if(!r)return null;
   const z=(r.wins-r.exp)/r.sd, judge=Math.abs(z)<2?'跟隨機買差不多':r.wins>r.exp?'比平均多一點，但只是運氣':'比平均少一點，但只是運氣';
-  const tiers=TIERS[cur].list.map(x=>x[0]).filter(n=>r.cnt[n]).map(n=>`${n} ${r.cnt[n]} 次`).join('、');
-  box.innerHTML=`<div class="row"><h2>如果每期都買 <span class="nums">${nums}</span></h2><button type="button" class="ghost" id="backClose">關閉</button></div>`+
-    `<p>從 ${rocYear(r.first)} 年第一期到最新一期，共 <b>${r.n.toLocaleString('en-US')}</b> 期，要花 <b>${(r.n*PRICE[cur]).toLocaleString('en-US')}</b> 元：`+
+  const tiers=TIERS[id].list.map(x=>x[0]).filter(n=>r.cnt[n]).map(n=>`${n} ${r.cnt[n]} 次`).join('、');
+  return `<p>從 ${rocYear(r.first)} 年第一期到最新一期，共 <b>${r.n.toLocaleString('en-US')}</b> 期，要花 <b>${(r.n*PRICE[id]).toLocaleString('en-US')}</b> 元：`+
     `中獎 <b>${r.wins}</b> 次（理論平均約 ${r.exp.toFixed(1)} 次，${judge}）。</p>`+
     `<p>${r.best?`最好的一次：<b>${r.best.prize}</b>（${rocYear(r.best.period)} 年第 ${Number(r.best.period)%1e6} 期）`:'一次都沒中'}；最久連續 <b>${r.maxRun.toLocaleString('en-US')}</b> 期沒中。</p>`+
     (tiers?`<p class="rule">各獎項：${tiers}（用現在的獎項規則算，早期有些獎項還沒有）</p>`:'')+
     `<p class="rule">過去中得多或少，都不代表以後比較會中，每期開獎互相獨立。</p>`;
+}
+function showBacktest(i){
+  const s=last[i], box=$('backOut'); if(!s)return;
+  const html=backtestHTML(cur,s); box.hidden=false;
+  if(!html){box.innerHTML='<p class="rule">歷年開獎資料還沒載入，稍後再按一次。</p>';return}
+  const nums=s.z1.map(v=>fmt(v,2)).join(' ')+(s.z2.length?' ＋ '+fmt(s.z2[0],2):'');
+  box.innerHTML=`<div class="row"><h2>如果每期都買 <span class="nums">${nums}</span></h2><button type="button" class="ghost" id="backClose">關閉</button></div>`+html;
   $('backClose').onclick=()=>{box.hidden=true};
 }
 $('sets').addEventListener('click',e=>{const b=e.target.closest('.back-btn'); if(b)showBacktest(+b.dataset.b)});
@@ -1710,7 +1813,7 @@ function renderAvoid(){
   const on=[!off&&avoid&&'避開熱門',!off&&spread&&'不重疊'].filter(Boolean);
   $('optsSum').textContent=off?'更多選項（這個彩種不適用）':on.length?`更多選項（已開：${on.join('、')}）`:'更多選項（避開熱門、多組不重疊）';
 }
-function renderRule(){const g=GAMES[cur];if($('simOut')&&$('simOut').innerHTML)setTimeout(runSim,0);$('rule').innerHTML=`<span><b>${g.name}</b></span><span>${g.rule}</span>`;renderAvoid();renderNextDraw();renderWheel();renderFreq();renderLab();renderRecIntro();$('recOut').innerHTML='';
+function renderRule(){const g=GAMES[cur];syncCheck();if($('simOut')&&$('simOut').innerHTML)setTimeout(runSim,0);$('rule').innerHTML=`<span><b>${g.name}</b></span><span>${g.rule}</span>`;renderAvoid();renderNextDraw();renderWheel();renderFreq();renderLab();renderRecIntro();$('recOut').innerHTML='';
   $('must').placeholder=g.digits?'例如 7（從第一位開始指定）':'例如 7 18';
   $('odds').innerHTML=g.odds.map(([l,v])=>`<div><small>${l}機率</small><strong>1 / ${v.toLocaleString('en-US')}</strong></div>`).join('')+
     `<div><small>每期買 1 注、連買 1 年（約 ${DRAW_DAYS[cur].length*52} 期）中${g.digits?'壹獎':'頭獎'}的機率</small><strong>約 1 / ${Math.round(g.odds[0][1]/(DRAW_DAYS[cur].length*52)).toLocaleString('en-US')}</strong></div>`}
@@ -1724,7 +1827,7 @@ $('go').onclick=()=>run(true);
 bindWheel();
 bindLab();
 bindManual();
-bindIO(); bindCap(); bindSim();
+bindIO(); bindCap(); bindSim(); bindCheck();
 $('recGo').onclick=doRecommend;
 // ---- 可安裝的 App（只在獨立網頁上；Claude 頁面不需要） ----
 if(!window.claude&&location.protocol==='https:'){
@@ -1751,7 +1854,7 @@ if(!window.claude&&location.protocol==='https:'){
 }
 // 跳轉按鈕：對應區塊隱藏時（例如 3星彩沒有包牌）按鈕也跟著藏起來
 // ---- 比較少用的區塊預設收合，只顯示標題和一句說明（展開狀態記在這台裝置） ----
-const FOLD={labBox:'7 種預測方法的回測、最近每一期的比對、AI 事先存好的預測',wheelBox:'輸入 7–16 個號碼，算包牌要幾注、花多少、中獎機率',budgetBox:'同樣的錢買不同彩種，哪個比較容易中',simBox:'每期買幾注、連買幾年，模擬 2,000 個人最後賺賠的分布',freqBox:'每個號碼歷年開出幾次，跟公平抽球比較'};
+const FOLD={labBox:'7 種預測方法的回測、最近每一期的比對、AI 事先存好的預測',wheelBox:'輸入 7–16 個號碼，算包牌要幾注、花多少、中獎機率',budgetBox:'同樣的錢買不同彩種，哪個比較容易中',checkBox:'輸入自己的號碼：歷年會中幾次、多少人選、萬一中頭獎實拿多少',simBox:'每期買幾注、連買幾年，模擬 2,000 個人最後賺賠的分布',freqBox:'每個號碼歷年開出幾次，跟公平抽球比較'};
 function bindFold(){
   let open=store('lucky.fold'); if(!open||typeof open!=='object')open={};
   for(const [id,hint] of Object.entries(FOLD)){
