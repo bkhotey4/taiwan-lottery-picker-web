@@ -6,7 +6,7 @@
 <title>彩券號碼機</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700;900&family=JetBrains+Mono:wght@500;700&display=swap">
-<script>try{var _t=JSON.parse(localStorage.getItem('lucky.theme'));if(_t==='light'||_t==='dark')document.documentElement.dataset.theme=_t}catch(e){}</script>
+<script>try{var _t=JSON.parse(localStorage.getItem('lucky.theme'));if(_t==='light'||_t==='dark')document.documentElement.dataset.theme=_t;var _s=JSON.parse(localStorage.getItem('lucky.style'));if(['a','b','c','d'].indexOf(_s)>=0)document.documentElement.dataset.style=_s}catch(e){}</script>
 <style>
 /* Layout: one column "betting slip" — game tabs, a drawn row of balls per set, then options and a short history */
 :root{
@@ -22,6 +22,47 @@
 :root[data-theme="dark"]{
   --bg:#0f1715; --paper:#17221f; --ink:#e7eeec; --muted:#9aa9a5; --line:#2a3834;
   --accent:#ff4d5e; --accent-ink:#1a0306; --ball:#ffd23f; --ball-ink:#2a2105; --ball2:#ff4d5e; --ball2-ink:#1a0306; --pick:#4fd1b5; color-scheme:dark}
+/* ===== 版面風格 A–D（data-style），每款都有亮色與暗色 ===== */
+:root[data-style="a"]{--bg:#f6f6f4;--paper:#ffffff;--ink:#111111;--muted:#666666;--line:#e4e4e0;--accent:#111111;--accent-ink:#ffffff;--ball:#ffffff;--ball-ink:#111111;--ball2:#111111;--ball2-ink:#ffffff;--pick:#2563eb;color-scheme:light}
+@media (prefers-color-scheme:dark){:root[data-style="a"]:not([data-theme="light"]){--bg:#0b0b0c;--paper:#151517;--ink:#f2f2f2;--muted:#9a9a9f;--line:#2b2b30;--accent:#f2f2f2;--accent-ink:#111111;--ball:#151517;--ball-ink:#f2f2f2;--ball2:#f2f2f2;--ball2-ink:#111111;--pick:#60a5fa;color-scheme:dark}}
+:root[data-style="a"][data-theme="dark"]{--bg:#0b0b0c;--paper:#151517;--ink:#f2f2f2;--muted:#9a9a9f;--line:#2b2b30;--accent:#f2f2f2;--accent-ink:#111111;--ball:#151517;--ball-ink:#f2f2f2;--ball2:#f2f2f2;--ball2-ink:#111111;--pick:#60a5fa;color-scheme:dark}
+[data-style="a"] .slip{border-radius:10px;border-width:1px}
+[data-style="a"] .ball{background:var(--ball);border:2px solid var(--ink);box-shadow:none;font-weight:600}
+[data-style="a"] .ball.z2{background:var(--ball2);border-color:var(--ball2)}
+[data-style="a"] .go{border-radius:8px;letter-spacing:.02em}
+[data-style="a"] header h1 span{color:var(--pick)}
+[data-style="a"] .odds div,[data-style="a"] .chance-box{border-radius:8px}
+:root[data-style="b"]{--bg:#fbf3df;--paper:#fffdf5;--ink:#2b1d0e;--muted:#7a6448;--line:#e8d4a2;--accent:#d7261e;--accent-ink:#ffffff;--ball:#ffcc00;--ball-ink:#2b1d0e;--ball2:#d7261e;--ball2-ink:#ffffff;--pick:#1f7a3a;color-scheme:light}
+@media (prefers-color-scheme:dark){:root[data-style="b"]:not([data-theme="light"]){--bg:#1a120a;--paper:#24190e;--ink:#fbeed2;--muted:#c2a882;--line:#4a3720;--accent:#ff5a4e;--accent-ink:#1a0806;--ball:#ffcc00;--ball-ink:#2b1d0e;--ball2:#ff5a4e;--ball2-ink:#1a0806;--pick:#5fd38a;color-scheme:dark}}
+:root[data-style="b"][data-theme="dark"]{--bg:#1a120a;--paper:#24190e;--ink:#fbeed2;--muted:#c2a882;--line:#4a3720;--accent:#ff5a4e;--accent-ink:#1a0806;--ball:#ffcc00;--ball-ink:#2b1d0e;--ball2:#ff5a4e;--ball2-ink:#1a0806;--pick:#5fd38a;color-scheme:dark}
+[data-style="b"] .slip{border:2px dashed var(--line);border-radius:6px;box-shadow:0 2px 0 var(--line)}
+[data-style="b"] .ball{background:var(--ball);border:2.5px solid var(--ink);box-shadow:0 2px 0 var(--ink)}
+[data-style="b"] .ball.z2{background:var(--ball2);border-color:var(--ink)}
+[data-style="b"] .go{border-radius:4px;box-shadow:0 3px 0 #7a1410;text-transform:none}
+[data-style="b"] header h1{letter-spacing:.08em}
+[data-style="b"] header h1 span{background:var(--accent);color:var(--accent-ink);padding:0 .15em;border-radius:4px}
+[data-style="b"] .tabs button[aria-pressed="true"],[data-style="b"] .side-tabs button[aria-selected="true"]{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+:root[data-style="c"]{--bg:#eef1ff;--paper:#ffffff;--ink:#141a3a;--muted:#5b6390;--line:#d5dbf5;--accent:#e0246f;--accent-ink:#ffffff;--ball:#22d3ee;--ball-ink:#06202a;--ball2:#e0246f;--ball2-ink:#ffffff;--pick:#0a9b93;color-scheme:light}
+@media (prefers-color-scheme:dark){:root[data-style="c"]:not([data-theme="light"]){--bg:#070b1a;--paper:#0f1630;--ink:#e8ecff;--muted:#8e97c4;--line:#232d57;--accent:#ff3d8b;--accent-ink:#ffffff;--ball:#22d3ee;--ball-ink:#04141a;--ball2:#ff3d8b;--ball2-ink:#ffffff;--pick:#2ee6d6;color-scheme:dark}}
+:root[data-style="c"][data-theme="dark"]{--bg:#070b1a;--paper:#0f1630;--ink:#e8ecff;--muted:#8e97c4;--line:#232d57;--accent:#ff3d8b;--accent-ink:#ffffff;--ball:#22d3ee;--ball-ink:#04141a;--ball2:#ff3d8b;--ball2-ink:#ffffff;--pick:#2ee6d6;color-scheme:dark}
+[data-style="c"] .slip{border-radius:16px;box-shadow:0 0 0 1px var(--line),0 8px 30px rgba(34,211,238,.10)}
+[data-style="c"] .ball{background:radial-gradient(circle at 35% 30%,#ffffffcc,#ffffff00 45%),linear-gradient(140deg,#67e8f9,#3b82f6);color:#fff;box-shadow:0 0 12px rgba(34,211,238,.55);text-shadow:0 1px 2px rgba(0,0,0,.35)}
+[data-style="c"] .ball.z2{background:radial-gradient(circle at 35% 30%,#ffffffaa,#ffffff00 45%),linear-gradient(140deg,#ff7ab6,#e0246f);box-shadow:0 0 12px rgba(255,61,139,.55)}
+[data-style="c"] .go{border-radius:12px;background:linear-gradient(90deg,#ff3d8b,#a855f7);box-shadow:0 0 16px rgba(255,61,139,.35)}
+[data-style="c"] header h1 span{background:linear-gradient(90deg,#22d3ee,#a855f7);-webkit-background-clip:text;background-clip:text;color:transparent}
+:root[data-style="d"]{--bg:#f6f1fb;--paper:#ffffff;--ink:#2f2540;--muted:#7d7290;--line:#ece3f5;--accent:#8b5cf6;--accent-ink:#ffffff;--ball:#fde68a;--ball-ink:#3b2a05;--ball2:#f9a8d4;--ball2-ink:#4a1030;--pick:#0f9f75;color-scheme:light}
+@media (prefers-color-scheme:dark){:root[data-style="d"]:not([data-theme="light"]){--bg:#17121f;--paper:#221a2e;--ink:#f1eaf9;--muted:#b3a6c6;--line:#3a2e4a;--accent:#a78bfa;--accent-ink:#1a1030;--ball:#fde68a;--ball-ink:#3b2a05;--ball2:#f9a8d4;--ball2-ink:#4a1030;--pick:#34d399;color-scheme:dark}}
+:root[data-style="d"][data-theme="dark"]{--bg:#17121f;--paper:#221a2e;--ink:#f1eaf9;--muted:#b3a6c6;--line:#3a2e4a;--accent:#a78bfa;--accent-ink:#1a1030;--ball:#fde68a;--ball-ink:#3b2a05;--ball2:#f9a8d4;--ball2-ink:#4a1030;--pick:#34d399;color-scheme:dark}
+[data-style="d"] .slip{border:0;border-radius:24px;box-shadow:0 6px 24px rgba(80,40,120,.10)}
+[data-style="d"] .ball{background:var(--ball);box-shadow:0 3px 8px rgba(80,40,120,.18)}
+[data-style="d"] .ball.z2{background:var(--ball2)}
+[data-style="d"] .go,[data-style="d"] .ghost,[data-style="d"] .odds div,[data-style="d"] .chance-box{border-radius:999px}
+[data-style="d"] .odds div,[data-style="d"] .chance-box{border-radius:18px}
+[data-style="d"] .side-tabs button{border-radius:999px}
+.style-sw{display:inline-flex;border:1.5px solid var(--line);border-radius:999px;overflow:hidden;background:var(--paper)}
+.style-sw button{font:inherit;font-size:12px;font-weight:700;border:0;background:none;color:var(--muted);padding:5px 9px;cursor:pointer;white-space:nowrap}
+.style-sw button[aria-pressed="true"]{background:var(--ink);color:var(--paper)}
+.style-note{font-size:12px;color:var(--muted);margin:0;text-align:right}
 *{box-sizing:border-box}
 body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--f-body);font-size:15px;line-height:1.6;
   padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:20px 40px}
@@ -69,6 +110,9 @@ button:focus-visible,input:focus-visible,select:focus-visible{outline:3px solid 
 #labBox.digits .ml-only{display:none}
 .today-list{display:grid;gap:10px;margin-top:8px}
 .win-rate:empty{display:none}
+.rs-list{display:grid;gap:8px;font-size:13px}
+.rs-item{padding:8px 10px;background:var(--bg);border-radius:8px;line-height:1.6}
+.rs-item a{color:var(--pick)}
 .win-rate .rule{display:block;margin-top:4px;font-size:12px}
 .today-row{padding:10px 12px;background:var(--bg);border-radius:10px}
 .today-row .rule{display:block;margin:4px 0 0;font-size:12px}
@@ -329,6 +373,10 @@ body.can-save .save{display:inline-block}
         <p>台灣彩券隨機選號，自己玩的娛樂工具</p>
       </div>
       <div class="install-btns">
+        <div class="style-sw" role="group" aria-label="版面風格">
+          <button type="button" data-style="o" title="原本的樣式">原本</button><button type="button" data-style="a" title="A 簡約白">A</button><button type="button" data-style="b" title="B 彩券行">B</button><button type="button" data-style="c" title="C 夜光霓虹">C</button><button type="button" data-style="d" title="D 柔和圓潤">D</button>
+        </div>
+        <p class="style-note" id="styleNote"></p>
         <div class="theme-sw" role="group" aria-label="外觀">
           <button type="button" data-theme="auto">自動</button><button type="button" data-theme="light">亮色</button><button type="button" data-theme="dark">暗色</button>
         </div>
@@ -551,6 +599,16 @@ body.can-save .save{display:inline-block}
       <div class="lab-log" id="aiLog"></div>
     </div>
     <p class="note">「和隨機比」用統計檢定：差距在 ±2 個標準差內代表跟隨機選號沒有分別。同時比很多種方法時，偶爾有一種剛好超過 2 也是正常的運氣。開獎是獨立隨機的，過去的號碼沒有可以學的規律，所以不要期待哪個方法長期贏過隨機。</p>
+  </section>
+
+  <section class="slip" id="researchBox" data-tab="ana" aria-label="學界研究與檢定">
+    <div class="row"><h2>學界研究與檢定</h2><span class="rule" id="rsMeta"></span></div>
+    <p class="rule">把學術研究用過的檢定方法，直接套在全部歷年開獎（含每期新開獎，每次打開自動重算）。p 值大於 0.01 代表「看不出跟公平隨機有差別」。</p>
+    <div class="cmp-wrap"><table class="cmp lab"><thead><tr><th>檢定</th><th>結果</th><th>p 值</th><th>結論</th></tr></thead><tbody id="rsRows"></tbody></table></div>
+    <p class="freq-sum" id="rsVerdict"></p>
+    <h3 class="lab-h">相關研究</h3>
+    <div class="rs-list" id="rsList"></div>
+    <p class="note">研究清單會持續補充；同時做很多個檢定時，偶爾有一個 p 值小於 0.05 是正常的（約每 20 個會有 1 個）。</p>
   </section>
 
   <section class="slip" id="wheelBox" data-tab="ana" aria-label="包牌試算">
@@ -1741,6 +1799,58 @@ async function renderToday(){ // 一次算一種彩券，算完先顯示再讓�
   $('todayMeta').textContent=new Date(Date.now()+8*3600e3).toISOString().slice(5,10).replace('-','/')+' 更新';
   renderSaveButtons();
 }
+// ---- 學界研究與檢定：研究清單（有新研究就加一筆）＋用最新資料重算的檢定 ----
+const RESEARCH=[
+  {who:'鍾明宏（2008）',what:'碩士論文《樂透彩開出號碼隨機性檢定與探討》',games:'大樂透、今彩539、威力彩',method:'卡方檢定、相關分析、期望值',finding:'開獎號碼符合隨機；平常買彩券期望值為負，頭獎累積到很高才可能回到 0',url:'https://etd.lib.nthu.edu.tw/detail/d3bd5464e6a67cedabc9d49278094385'},
+  {who:'三星彩隨機性研究（2022）',what:'期刊論文，2005/12–2018/12 共 3,795 期',games:'3星彩',method:'卡方檢定',finding:'全部通過隨機性檢定',url:'https://www.airitilibrary.com/Article/Detail/a0000255-202202-202204080003-202204080003-19-27'},
+  {who:'台大博士論文（2006）',what:'台灣樂透（6/42）玩家選號行為',games:'樂透',method:'玩家選號資料分析',finding:'玩家明顯有賭徒謬誤（以為很久沒開的號碼快開了）',url:'https://tdr.lib.ntu.edu.tw/handle/123456789/32703?locale=en'},
+  {who:'王、林（2006）',what:'《台灣經濟預測與政策》',games:'樂透',method:'銷售時間序列',finding:'玩家一開始刻意選號，之後轉為隨機選號',url:'https://www.airitilibrary.com/Publication/Index/17298849-200610-37-1-49-67-a'},
+  {who:'黃文璋〈瘋狂大樂透〉',what:'中研院數學所科普文章（非正式論文）',games:'大樂透',method:'組合與機率分析',finding:'13,983,816 種組合；連續槓龜與投注覆蓋率的關係',url:'https://www.math.sinica.edu.tw/media/pdf/d291/29105.pdf'},
+  {who:'Joe（1993）',what:'Statistics & Probability Letters',games:'國外樂透',method:'號碼組合的均勻性檢定',finding:'提出檢驗樂透號碼是否均勻的方法（台灣論文常引用）',url:''}
+];
+function normCdf(z){const t=1/(1+0.2316419*Math.abs(z)),d=0.3989423*Math.exp(-z*z/2),q=d*t*(0.3193815+t*(-0.3565638+t*(1.781478+t*(-1.821256+t*1.330274))));return z>0?1-q:q}
+const p2=z=>2*(1-normCdf(Math.abs(z)));                       // 雙尾 p 值
+function chiP(x,k){const z=(Math.pow(x/k,1/3)-(1-2/(9*k)))/Math.sqrt(2/(9*k));return 1-normCdf(z)} // 卡方右尾（Wilson–Hilferty 近似）
+function corrLag1(a){const n=a.length,m=a.reduce((x,y)=>x+y,0)/n;let c=0,v=0;for(let i=0;i<n;i++){v+=(a[i]-m)**2;if(i)c+=(a[i]-m)*(a[i-1]-m)}return c/v}
+function runsZ(bits){const n1=bits.filter(Boolean).length,n2=bits.length-n1;if(!n1||!n2)return 0;let r=1;for(let i=1;i<bits.length;i++)if(bits[i]!==bits[i-1])r++;
+  const mu=2*n1*n2/(n1+n2)+1,va=2*n1*n2*(2*n1*n2-n1-n2)/((n1+n2)**2*(n1+n2-1));return (r-mu)/Math.sqrt(va)}
+function academicTests(id){
+  const g=GAMES[id], rows=[];
+  if(g.digits){
+    const ds=digitDraws(id); if(!ds)return null; const D=g.digits, N=ds.length;
+    for(let pos=0;pos<D;pos++){const c=new Array(10).fill(0);ds.forEach(d=>c[d.nums[pos]]++);const E=N/10,x=c.reduce((a,o)=>a+(o-E)**2/E,0);
+      rows.push({name:`第 ${pos+1} 位數字是否平均（卡方，鍾 2008／三星彩 2022 的方法）`,res:`χ²=${x.toFixed(1)}（自由度 9）`,p:chiP(x,9)})}
+    let same=0;for(let i=1;i<N;i++)for(let pos=0;pos<D;pos++)if(ds[i].nums[pos]===ds[i-1].nums[pos])same++;
+    const n=(N-1)*D, e=n*0.1; rows.push({name:'同一位數字跟上一期一樣的次數（期與期是否獨立）',res:`${same} 次（理論 ${e.toFixed(0)}）`,p:p2((same-e)/Math.sqrt(n*0.1*0.9))});
+    const sums=ds.map(d=>d.nums.reduce((a,b)=>a+b,0)), r=corrLag1(sums); rows.push({name:'相鄰兩期數字和的相關係數（相關分析）',res:`r=${r.toFixed(3)}`,p:p2(r*Math.sqrt(N))});
+    const med=[...sums].sort((a,b)=>a-b)[N>>1], bits=sums.filter(x=>x!==med).map(x=>x>med); rows.push({name:'數字和大小交替的連串檢定（Wald–Wolfowitz）',res:`z=${runsZ(bits).toFixed(2)}`,p:p2(runsZ(bits))});
+    return{N,rows};
+  }
+  const ds=labDraws(id); if(!ds)return null; const n=g.z1.n, max=g.z1.max, N=ds.length;
+  const c=new Array(max+1).fill(0); ds.forEach(d=>d.nums.forEach(v=>c[v]++));
+  const E=N*n/max; let x=0; for(let v=1;v<=max;v++)x+=(c[v]-E)**2/E; x*=(max-1)/(max-n); // 每期不重複抽，校正成標準卡方
+  rows.push({name:'每個號碼開出次數是否平均（卡方，鍾 2008 的方法）',res:`χ²=${x.toFixed(1)}（自由度 ${max-1}）`,p:chiP(x,max-1)});
+  let rep=0;for(let i=1;i<N;i++)rep+=ds[i].nums.filter(v=>ds[i-1].nums.includes(v)).length;
+  const eRep=(N-1)*n*n/max, vRep=(N-1)*n*(n/max)*((max-n)/max)*((max-n)/(max-1)); rows.push({name:'跟上一期重複的號碼數（期與期是否獨立）',res:`平均 ${(rep/(N-1)).toFixed(3)} 個（理論 ${(n*n/max).toFixed(3)}）`,p:p2((rep-eRep)/Math.sqrt(vRep))});
+  const sums=ds.map(d=>d.nums.reduce((a,b)=>a+b,0)), r=corrLag1(sums); rows.push({name:'相鄰兩期號碼和的相關係數（相關分析）',res:`r=${r.toFixed(3)}`,p:p2(r*Math.sqrt(N))});
+  const odd=ds.map(d=>d.nums.filter(v=>v%2).length), om=n/2, bits=odd.filter(x=>x!==om).map(x=>x>om); rows.push({name:'奇數多／偶數多交替的連串檢定（Wald–Wolfowitz）',res:`z=${runsZ(bits).toFixed(2)}`,p:p2(runsZ(bits))});
+  if(g.z2||id==='lotto'){const sp=ds.map(d=>d.sp).filter(v=>Number.isInteger(v)),K=id==='power'?8:max,cs=new Array(K+1).fill(0);sp.forEach(v=>cs[v]++);const E2=sp.length/K;let x2=0;for(let v=1;v<=K;v++)x2+=(cs[v]-E2)**2/E2;
+    // 特別號／第二區每期只開 1 個，各期獨立，直接用標準卡方（不用校正）
+    rows.push({name:id==='power'?'第二區 1–8 是否平均（卡方）':'特別號是否平均（卡方）',res:`χ²=${x2.toFixed(1)}（自由度 ${K-1}）`,p:chiP(x2,K-1)})}
+  return{N,rows};
+}
+function renderResearch(){
+  const g=GAMES[cur], R=academicTests(cur); if(!$('rsRows'))return;
+  $('rsMeta').textContent=g.name+(R?` · ${R.N.toLocaleString('en-US')} 期`:'');
+  if(!R){$('rsRows').innerHTML='<tr><td colspan="4">歷年開獎資料載入中…</td></tr>';$('rsVerdict').textContent='';}
+  else{
+    $('rsRows').innerHTML=R.rows.map(r=>{const ok=r.p>0.01;return`<tr><td>${r.name}</td><td>${r.res}</td><td>${r.p<0.001?'<0.001':r.p.toFixed(3)}</td><td class="${ok?'':'bad'}">${ok?'符合隨機':'值得注意'}</td></tr>`}).join('');
+    const bad=R.rows.filter(r=>r.p<=0.01), weak=R.rows.filter(r=>r.p>0.01&&r.p<0.05);
+    $('rsVerdict').innerHTML=`<b>結論：</b>${bad.length?`有 ${bad.length} 項 p 值小於 0.01，之後的開獎會持續檢驗；`:`${R.rows.length} 項檢定都看不出跟公平隨機有差別，`}`+
+      (weak.length?`${weak.length} 項介於 0.01–0.05，同時做多項檢定時這種程度很常見。`:'')+'跟學界研究的結論一致：開獎號碼符合隨機，沒有可以利用的規律。';
+  }
+  $('rsList').innerHTML=RESEARCH.map(r=>`<div class="rs-item"><b>${r.who}</b>　${r.what}<br><span class="rule">${r.games} · ${r.method}</span><br>結論：${r.finding}${r.url?` · <a href="${r.url}" target="_blank" rel="noopener">來源</a>`:''}</div>`).join('');
+}
 // ---- 查某一期開獎：每個彩種都有 2007 年以來的每一期 ----
 function allDraws(id){ // 舊→新：{period,date,numbers,special,prizes}
   return pickDraws(id).list;
@@ -2141,7 +2251,7 @@ async function standalone(){
   $('picksNote').textContent='按號碼旁的「存這組」就會存在這台裝置的瀏覽器裡（換裝置或清除瀏覽資料就不見）。每次打開頁面都會抓最新開獎，自動對照存號碼之後的第一期（晚上 8 點後存的，算下一期）。';
   reloadLocalPicks();
   const pS=fetch('stats.json',{cache:'no-cache'}).then(r=>r.ok?r.json():null).then(j=>{if(j){stats=j;renderFreq();renderRecIntro();renderEV()}}).catch(()=>{}); // 和網頁放在一起的歷年統計
-  const pH=fetch('history.json',{cache:'no-cache'}).then(r=>r.ok?r.json():null).then(j=>{if(j&&typeof j==='object'){histData=j;renderLab();renderPicks();if(target==='stat')run(false,false);renderSaveButtons();scheduleToday()}}).catch(()=>{}); // 每期號碼（預測實驗室、舊號碼對獎）
+  const pH=fetch('history.json',{cache:'no-cache'}).then(r=>r.ok?r.json():null).then(j=>{if(j&&typeof j==='object'){histData=j;renderLab();renderPicks();if(target==='stat')run(false,false);renderSaveButtons();scheduleToday();renderResearch()}}).catch(()=>{}); // 每期號碼（預測實驗室、舊號碼對獎）
   Promise.all([pS,pH]).then(fillHistoryGap);
   // AI 事先存好的預測：每晚排程推到公開網頁的 ai.json；App 內建檔案沒有，直接讀網站上的
   const AI_URL=location.protocol==='file:'?'https://bkhotey4.github.io/taiwan-lottery-picker-web/ai.json':'ai.json';
@@ -2150,7 +2260,7 @@ async function standalone(){
   res.forEach((r,i)=>{if(r.status==='fulfilled'&&r.value)latest[ids[i]]=r.value});
   latestFailed=!Object.keys(latest).length;
   liveAt=Date.now();
-  renderLatest(); renderPicks(); renderLab(); if(target==='stat'&&histData[cur])run(false,false); scheduleToday(); renderNextDraw();
+  renderLatest(); renderPicks(); renderLab(); if(target==='stat'&&histData[cur])run(false,false); scheduleToday(); renderNextDraw(); renderResearch();
 }
 
 // ---- 即時更新：頁面開著時，開獎時段每 5 分鐘、從別的 App 切回來時，重新抓開獎與 AI 預測 ----
@@ -2184,7 +2294,7 @@ function renderAvoid(){
   const on=[!off&&avoid&&'避開熱門',!off&&!tm&&spread&&'不重疊'].filter(Boolean);
   $('optsSum').textContent=off?'更多選項（這個彩種不適用）':target==='stat'?'更多選項（統計模型不適用）':on.length?`更多選項（已開：${on.join('、')}）`:'更多選項（避開熱門、多組不重疊）';
 }
-function renderRule(){const g=GAMES[cur];syncCheck();if($('simOut')&&$('simOut').innerHTML)setTimeout(runSim,0);$('rule').innerHTML=`<span><b>${g.name}</b></span><span>${g.rule}</span>`;renderAvoid();renderNextDraw();renderWheel();renderFreq();renderLab();renderRecIntro();$('recOut').innerHTML='';
+function renderRule(){const g=GAMES[cur];syncCheck();renderResearch();if($('simOut')&&$('simOut').innerHTML)setTimeout(runSim,0);$('rule').innerHTML=`<span><b>${g.name}</b></span><span>${g.rule}</span>`;renderAvoid();renderNextDraw();renderWheel();renderFreq();renderLab();renderRecIntro();$('recOut').innerHTML='';
   $('must').placeholder=g.digits?'例如 7（從第一位開始指定）':'例如 7 18';
   $('odds').innerHTML=g.odds.map(([l,v])=>`<div><small>${l}機率</small><strong>1 / ${v.toLocaleString('en-US')}</strong></div>`).join('')+
     `<div><small>每期買 1 注、連買 1 年（約 ${DRAW_DAYS[cur].length*52} 期）中${g.digits?'壹獎':'頭獎'}的機率</small><strong>約 1 / ${Math.round(g.odds[0][1]/(DRAW_DAYS[cur].length*52)).toLocaleString('en-US')}</strong></div>`}
@@ -2226,7 +2336,7 @@ if(location.protocol==='https:'){
 }
 // 跳轉按鈕：對應區塊隱藏時（例如 3星彩沒有包牌）按鈕也跟著藏起來
 // ---- 比較少用的區塊預設收合，只顯示標題和一句說明（展開狀態記在這台裝置） ----
-const FOLD={labBox:'13 種預測方法（含貝氏、馬可夫鏈等數學模型）的回測、最近每一期的比對、AI 事先存好的預測',wheelBox:'輸入 7–16 個號碼，算包牌要幾注、花多少、中獎機率',budgetBox:'同樣的錢買不同彩種，哪個比較容易中',checkBox:'輸入自己的號碼：歷年會中幾次、多少人選、萬一中頭獎實拿多少；也能查某一期開了什麼',simBox:'每期買幾注、連買幾年，模擬 2,000 個人最後賺賠的分布',freqBox:'每個號碼歷年開出幾次，跟公平抽球比較'};
+const FOLD={researchBox:'學術研究用過的隨機性檢定，套在全部歷年＋最新開獎上自動重算；附相關論文',labBox:'13 種預測方法（含貝氏、馬可夫鏈等數學模型）的回測、最近每一期的比對、AI 事先存好的預測',wheelBox:'輸入 7–16 個號碼，算包牌要幾注、花多少、中獎機率',budgetBox:'同樣的錢買不同彩種，哪個比較容易中',checkBox:'輸入自己的號碼：歷年會中幾次、多少人選、萬一中頭獎實拿多少；也能查某一期開了什麼',simBox:'每期買幾注、連買幾年，模擬 2,000 個人最後賺賠的分布',freqBox:'每個號碼歷年開出幾次，跟公平抽球比較'};
 function bindFold(){
   let open=store('lucky.fold'); if(!open||typeof open!=='object')open={};
   for(const [id,hint] of Object.entries(FOLD)){
@@ -2282,6 +2392,17 @@ function setTheme(t){
   const m=document.querySelector('meta[name="theme-color"]'); if(m)m.content=getComputedStyle(document.documentElement).getPropertyValue('--bg').trim()||'#c8102e';
 }
 document.querySelectorAll('.theme-sw button').forEach(b=>b.onclick=()=>setTheme(b.dataset.theme));
+// ---- 版面風格：原本／A 簡約白／B 彩券行／C 夜光霓虹／D 柔和圓潤（記在這台裝置） ----
+const STYLE_NAMES={o:'原本',a:'A 簡約白',b:'B 彩券行',c:'C 夜光霓虹',d:'D 柔和圓潤'};
+function setStyle(v){
+  if(!STYLE_NAMES[v])v='o';
+  if(v==='o')delete document.documentElement.dataset.style; else document.documentElement.dataset.style=v;
+  store('lucky.style',v);
+  document.querySelectorAll('.style-sw button').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.style===v)));
+  $('styleNote').textContent='風格：'+STYLE_NAMES[v];
+}
+document.querySelectorAll('.style-sw button').forEach(b=>b.onclick=()=>setStyle(b.dataset.style));
+setStyle(store('lucky.style')||'o');
 setTheme(store('lucky.theme')||'auto');
 renderHist(); renderAll(false);
 if(!store('lucky.intro')){$('introBar').hidden=false;$('introOk').onclick=()=>{store('lucky.intro',1);$('introBar').hidden=true}}
