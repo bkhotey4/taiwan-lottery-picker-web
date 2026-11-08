@@ -42,6 +42,14 @@
 [data-style="b"] header h1{letter-spacing:.08em}
 [data-style="b"] header h1 span{background:var(--accent);color:var(--accent-ink);padding:0 .15em;border-radius:4px}
 [data-style="b"] .tabs button[aria-pressed="true"],[data-style="b"] .side-tabs button[aria-selected="true"]{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+[data-style="b"] .slip h2{border-left:5px solid var(--accent);padding-left:8px;line-height:1.3}
+[data-style="b"] .cmp th{background:var(--accent);color:var(--accent-ink);font-weight:700}
+[data-style="b"] .cmp th:first-child{border-top-left-radius:4px}[data-style="b"] .cmp th:last-child{border-top-right-radius:4px}
+[data-style="b"] .odds div,[data-style="b"] .chance-box,[data-style="b"] .today-row,[data-style="b"] .rec-set,[data-style="b"] .log-row,[data-style="b"] .rs-item,[data-style="b"] .back-box{border-radius:4px}
+[data-style="b"] .today-row,[data-style="b"] .rec-set{border:1.5px dashed var(--line)}
+[data-style="b"] .ghost{border-radius:4px;border-color:var(--line)}
+[data-style="b"] .jump a,[data-style="b"] .tabs button{border-radius:6px}
+[data-style="b"] .latest-box{border-color:var(--accent)}
 :root[data-style="c"]{--bg:#eef1ff;--paper:#ffffff;--ink:#141a3a;--muted:#5b6390;--line:#d5dbf5;--accent:#e0246f;--accent-ink:#ffffff;--ball:#22d3ee;--ball-ink:#06202a;--ball2:#e0246f;--ball2-ink:#ffffff;--pick:#0a9b93;color-scheme:light}
 @media (prefers-color-scheme:dark){:root[data-style="c"]:not([data-theme="light"]){--bg:#070b1a;--paper:#0f1630;--ink:#e8ecff;--muted:#8e97c4;--line:#232d57;--accent:#ff3d8b;--accent-ink:#ffffff;--ball:#22d3ee;--ball-ink:#04141a;--ball2:#ff3d8b;--ball2-ink:#ffffff;--pick:#2ee6d6;color-scheme:dark}}
 :root[data-style="c"][data-theme="dark"]{--bg:#070b1a;--paper:#0f1630;--ink:#e8ecff;--muted:#8e97c4;--line:#232d57;--accent:#ff3d8b;--accent-ink:#ffffff;--ball:#22d3ee;--ball-ink:#04141a;--ball2:#ff3d8b;--ball2-ink:#ffffff;--pick:#2ee6d6;color-scheme:dark}
@@ -598,7 +606,7 @@ body.can-save .save{display:inline-block}
       <p class="rule" id="aiNote"></p>
       <div class="lab-log" id="aiLog"></div>
     </div>
-    <p class="note">「和隨機比」用統計檢定：差距在 ±2 個標準差內代表跟隨機選號沒有分別。同時比很多種方法時，偶爾有一種剛好超過 2 也是正常的運氣。開獎是獨立隨機的，過去的號碼沒有可以學的規律，所以不要期待哪個方法長期贏過隨機。</p>
+    <p class="note">z＝跟隨機選號差幾個標準差。「和隨機比」用統計檢定：差距在 ±2 個標準差內代表跟隨機選號沒有分別。同時比很多種方法時，偶爾有一種剛好超過 2 也是正常的運氣。開獎是獨立隨機的，過去的號碼沒有可以學的規律，所以不要期待哪個方法長期贏過隨機。</p>
   </section>
 
   <section class="slip" id="researchBox" data-tab="ana" aria-label="學界研究與檢定">
@@ -1137,9 +1145,9 @@ function renderLabDigits(){
   const box=$('labBox'), g=GAMES[cur], L=runLabDigits(cur); if(!L){box.hidden=true;return}
   box.hidden=false;
   $('labMeta').textContent=`回測 ${L.tested.toLocaleString('en-US')} 期`;
-  const judge=z=>Math.abs(z)<2?['跟隨機差不多','']:z>0?['比隨機好（可能是運氣）','good']:['比隨機差（可能是運氣）','bad'];
+  const judge=z=>Math.abs(z)<2?['≈ 隨機','']:z>0?['偏高（運氣）','good']:['偏低（運氣）','bad'];
   $('labRows').innerHTML=`<tr class="base"><td>理論值（隨機）</td><td>${L.expHits.toFixed(3)} 位</td><td>${pct(L.pAny)}</td><td>—</td></tr>`+
-    L.rows.map(r=>{const z=Math.abs(r.z)>=Math.abs(r.zp)?r.z:r.zp,[t,c]=judge(z);return`<tr><td>${r.name}</td><td>${r.avg.toFixed(3)} 位</td><td>${pct(r.pr)}</td><td class="${c}">${t}<br><span class="rule">差 ${z>=0?'+':''}${z.toFixed(1)} 個標準差</span></td></tr>`}).join('');
+    L.rows.map(r=>{const z=Math.abs(r.z)>=Math.abs(r.zp)?r.z:r.zp,[t,c]=judge(z);return`<tr><td>${r.name}</td><td>${r.avg.toFixed(3)} 位</td><td>${pct(r.pr)}</td><td class="${c}">${t}<br><span class="rule">z=${z>=0?'+':''}${z.toFixed(1)}</span></td></tr>`}).join('');
   const off=L.rows.filter(r=>Math.max(Math.abs(r.z),Math.abs(r.zp))>=2);
   $('labVerdict').innerHTML=`<b>結論：</b>${g.name}每一位都是 0–9 隨機開出，`+(off.length?`有 ${off.length} 種方法超過 2 個標準差，同時比很多方法時偶爾會出現，要看之後能不能維持。`:`${L.rows.length} 種方法都跟隨機選號沒有明顯差別。`)+`「平均對中」是依位置對中幾位（理論 ${L.expHits.toFixed(1)} 位）。`;
   $('labPreds').innerHTML=L.next.map((p,i)=>`<div class="pr"><span class="mname">${p.name}</span>${p.z1.map(v=>`<span class="ball sm">${v}</span>`).join('')}<button type="button" class="ghost save" data-pred="${i}">存這組</button></div>`).join('');
@@ -1152,9 +1160,9 @@ function renderLab(){
   const L=runLab(cur); if(!L){box.hidden=true;return}
   box.hidden=false;
   $('labMeta').textContent=`回測 ${L.tested.toLocaleString('en-US')} 期`;
-  const judge=z=>Math.abs(z)<2?['跟隨機差不多','']:z>0?['比隨機好（可能是運氣）','good']:['比隨機差（可能是運氣）','bad'];
+  const judge=z=>Math.abs(z)<2?['≈ 隨機','']:z>0?['偏高（運氣）','good']:['偏低（運氣）','bad'];
   $('labRows').innerHTML=`<tr class="base"><td>理論值（隨機）</td><td>${L.expHits.toFixed(3)}</td><td>${pct(L.pAny)}</td><td>—</td></tr>`+
-    L.rows.map(r=>{const z=Math.abs(r.z)>=Math.abs(r.zp)?r.z:r.zp,[t,c]=judge(z);return`<tr><td>${r.name}</td><td>${r.avg.toFixed(3)}</td><td>${pct(r.pr)}</td><td class="${c}">${t}<br><span class="rule">差 ${z>=0?'+':''}${z.toFixed(1)} 個標準差</span></td></tr>`}).join('');
+    L.rows.map(r=>{const z=Math.abs(r.z)>=Math.abs(r.zp)?r.z:r.zp,[t,c]=judge(z);return`<tr><td>${r.name}</td><td>${r.avg.toFixed(3)}</td><td>${pct(r.pr)}</td><td class="${c}">${t}<br><span class="rule">z=${z>=0?'+':''}${z.toFixed(1)}</span></td></tr>`}).join('');
   const off=L.rows.filter(r=>Math.max(Math.abs(r.z),Math.abs(r.zp))>=2);
   const best=[...L.rows].sort((a,b)=>b.avg-a.avg)[0];
   $('labVerdict').innerHTML=off.length===0
@@ -1804,9 +1812,15 @@ const RESEARCH=[
   {who:'鍾明宏（2008）',what:'碩士論文《樂透彩開出號碼隨機性檢定與探討》',games:'大樂透、今彩539、威力彩',method:'卡方檢定、相關分析、期望值',finding:'開獎號碼符合隨機；平常買彩券期望值為負，頭獎累積到很高才可能回到 0',url:'https://etd.lib.nthu.edu.tw/detail/d3bd5464e6a67cedabc9d49278094385'},
   {who:'三星彩隨機性研究（2022）',what:'期刊論文，2005/12–2018/12 共 3,795 期',games:'3星彩',method:'卡方檢定',finding:'全部通過隨機性檢定',url:'https://www.airitilibrary.com/Article/Detail/a0000255-202202-202204080003-202204080003-19-27'},
   {who:'台大博士論文（2006）',what:'台灣樂透（6/42）玩家選號行為',games:'樂透',method:'玩家選號資料分析',finding:'玩家明顯有賭徒謬誤（以為很久沒開的號碼快開了）',url:'https://tdr.lib.ntu.edu.tw/handle/123456789/32703?locale=en'},
-  {who:'王、林（2006）',what:'《台灣經濟預測與政策》',games:'樂透',method:'銷售時間序列',finding:'玩家一開始刻意選號，之後轉為隨機選號',url:'https://www.airitilibrary.com/Publication/Index/17298849-200610-37-1-49-67-a'},
+  {who:'王、林（2006）',what:'《台灣經濟預測與政策》',games:'樂透',method:'銷售時間序列',finding:'玩家一開始刻意選號，之後轉為隨機選號',url:'https://ah.lib.nccu.edu.tw/bitstream/140.119/22366/1/tefp37-1-2.2008082015553836.pdf'},
   {who:'黃文璋〈瘋狂大樂透〉',what:'中研院數學所科普文章（非正式論文）',games:'大樂透',method:'組合與機率分析',finding:'13,983,816 種組合；連續槓龜與投注覆蓋率的關係',url:'https://www.math.sinica.edu.tw/media/pdf/d291/29105.pdf'},
-  {who:'Joe（1993）',what:'Statistics & Probability Letters',games:'國外樂透',method:'號碼組合的均勻性檢定',finding:'提出檢驗樂透號碼是否均勻的方法（台灣論文常引用）',url:''}
+  {who:'Joe（1993）',what:'Statistics & Probability Letters',games:'國外樂透',method:'號碼組合的均勻性檢定',finding:'提出檢驗樂透號碼是否均勻的方法（台灣論文常引用）',url:'',ours:'本頁的卡方均勻性檢定'},
+  {who:'吳信宏（2005）',what:'高雄大學統計所碩士論文：樂透開獎號碼與簽注隨機性檢定',games:'台灣樂透',method:'隨機性檢定',finding:'檢驗開獎號碼與玩家簽注是否隨機（鍾 2008 引用）',url:'https://etd.lib.nthu.edu.tw/detail/d3bd5464e6a67cedabc9d49278094385'},
+  {who:'黃吉南（2003）',what:'台北大學統計系：樂透銷售量與獎金期望值預測',games:'台灣樂透',method:'銷售量與期望值預測',finding:'用銷售量預測獎金與期望值（鍾 2008 引用）',url:'https://etd.lib.nthu.edu.tw/detail/d3bd5464e6a67cedabc9d49278094385',ours:'「這期值不值得買」的期望值估計'},
+  {who:'Cook & Clotfelter（1993）',what:'American Economic Review〈The Peculiar Scale Economies of Lotto〉',games:'美國樂透',method:'經濟學分析',finding:'提出「有意識選號」（conscious selection）：玩家選號不是均勻的',url:''},
+  {who:'Farrell、Hartley、Lanot、Walker（2000）',what:'Journal of Business & Economic Statistics〈The Demand for Lotto: The Role of Conscious Selection〉',games:'英國樂透',method:'用每期銷售與中獎資料推估選號偏好',finding:'玩家偏好特定號碼，會影響頭獎平分',url:'',ours:'「熱門號碼推算」用中獎人數反推大家愛選的號碼'},
+  {who:'Baker & McHale（2009）',what:'Journal of the Royal Statistical Society A',games:'英國樂透',method:'中獎人數的統計模型',finding:'有意識選號讓各期中獎人數變異很大、各獎項人數高度相關，所以中獎人數可以反推選號偏好',url:'https://ideas.repec.org/a/bla/jorssa/v172y2009i4p813-834.html',ours:'「熱門號碼推算」的方法依據'},
+  {who:'以色列樂透手選號碼研究',what:'Judgment and Decision Making 期刊',games:'以色列樂透',method:'分析玩家手選號碼',finding:'手選號碼有明顯模式（生日、圖形、連號等）',url:'https://www.cambridge.org/core/product/F7167C1DD46E4876DAFCDDD6CE8F238C/core-reader',ours:'「避開熱門選法」與「挑少人選的號碼」'}
 ];
 function normCdf(z){const t=1/(1+0.2316419*Math.abs(z)),d=0.3989423*Math.exp(-z*z/2),q=d*t*(0.3193815+t*(-0.3565638+t*(1.781478+t*(-1.821256+t*1.330274))));return z>0?1-q:q}
 const p2=z=>2*(1-normCdf(Math.abs(z)));                       // 雙尾 p 值
@@ -1849,7 +1863,7 @@ function renderResearch(){
     $('rsVerdict').innerHTML=`<b>結論：</b>${bad.length?`有 ${bad.length} 項 p 值小於 0.01，之後的開獎會持續檢驗；`:`${R.rows.length} 項檢定都看不出跟公平隨機有差別，`}`+
       (weak.length?`${weak.length} 項介於 0.01–0.05，同時做多項檢定時這種程度很常見。`:'')+'跟學界研究的結論一致：開獎號碼符合隨機，沒有可以利用的規律。';
   }
-  $('rsList').innerHTML=RESEARCH.map(r=>`<div class="rs-item"><b>${r.who}</b>　${r.what}<br><span class="rule">${r.games} · ${r.method}</span><br>結論：${r.finding}${r.url?` · <a href="${r.url}" target="_blank" rel="noopener">來源</a>`:''}</div>`).join('');
+  $('rsList').innerHTML=RESEARCH.map(r=>`<div class="rs-item"><b>${r.who}</b>　${r.what}<br><span class="rule">${r.games} · ${r.method}</span><br>結論：${r.finding}${r.ours?`<br><span class="rule">本站對應：${r.ours}</span>`:''}${r.url?` · <a href="${r.url}" target="_blank" rel="noopener">來源</a>`:''}</div>`).join('');
 }
 // ---- 查某一期開獎：每個彩種都有 2007 年以來的每一期 ----
 function allDraws(id){ // 舊→新：{period,date,numbers,special,prizes}
