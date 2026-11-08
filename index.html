@@ -530,7 +530,7 @@ body.can-save .save{display:inline-block}
     <details class="more-box"><summary>看計算細節</summary>
       <div class="ev-body" id="evBody"></div>
       <div class="ev-log" id="evLog"></div>
-      <p class="note">中獎機率每期都一樣，會變的是獎金：頭獎累積越多，平均拿回越多。小獎用最近幾期實際獎金平均，頭獎用台彩公布的累積金額與銷售額估計，超過 5,000 元扣 20% 所得稅。只是估計，實際以官方公告為準。</p>
+      <p class="note">中獎機率每期都一樣，會變的是獎金：頭獎累積越多，平均拿回越多。小獎用最近幾期實際獎金平均，頭獎用台彩公布的累積金額與銷售額估計，每注超過 5,000 元扣 20% 所得稅＋0.4% 印花稅。只是估計，實際以官方公告為準。</p>
     </details>
   </section>
 
@@ -703,7 +703,7 @@ body.can-save .save{display:inline-block}
       <div class="sim-pct" id="simPct"></div>
       <p class="freq-sum" id="simSum"></p>
     </details>
-    <p class="note">每期獨立抽獎；小獎用最近幾期實際每注獎金平均，頭獎用本期估計金額（含跟別人平分、扣 20% 稅）。凱利公式是讓資金長期成長最快的下注比例：平均拿回的錢少於本金時，答案是 0。</p>
+    <p class="note">每期獨立抽獎；小獎用最近幾期實際每注獎金平均，頭獎用本期估計金額（含跟別人平分、扣 20.4% 稅）。凱利公式是讓資金長期成長最快的下注比例：平均拿回的錢少於本金時，答案是 0。</p>
   </section>
 
   <section class="slip" id="freqBox" data-tab="ana" aria-label="歷年號碼開出次數" hidden>
@@ -1755,9 +1755,9 @@ function renderRecScore(){
 }
 // ---- 這期值不值得買：每注平均拿回多少（期望值） ----
 // 中獎機率固定，但獎金每期不同。小獎用最近幾期實際每注獎金平均；頭獎用「上期累積＋本期銷售撥入」估計，
-// 並用泊松分布估計同一期還有幾個人也中頭獎（要平分）。超過 5,000 元的獎金扣 20% 所得稅。
+// 並用泊松分布估計同一期還有幾個人也中頭獎（要平分）。每注超過 5,000 元的獎金扣 20% 所得稅＋0.4% 印花稅。
 // scripts/ai-predict.mjs 裡有同一套計算（每晚記錄，划算時通知），兩邊要一起改。
-const EV_TAX=0.2, D539_JP=8e6, D539_CAP=24e6; // 今彩539 頭獎公告值（讀不到開獎資料時才用）
+const EV_TAX=0.204, D539_JP=8e6, D539_CAP=24e6; // 每注超過 5,000 元：20% 所得稅＋0.4% 印花稅（財政部規定，每注分開算）； // 今彩539 頭獎公告值（讀不到開獎資料時才用）
 function fixedPrizeText(id){ // 3星／4星每個獎項的獎金（最近開獎的實際金額）
   const t=TIERS[id], r=latest[id], rec=r&&Array.isArray(r.recent)?r.recent:[];
   const amt=n=>{const v=rec.map(d=>Number(d&&d.prizes&&d.prizes[n])).filter(x=>x>0);return v.length?v[0]:null};
@@ -2518,7 +2518,7 @@ function setStyle(v){
 }
 document.querySelectorAll('.style-sw button').forEach(b=>b.onclick=()=>setStyle(b.dataset.style));
 setStyle(store('lucky.style')||'b'); // 預設風格：B 彩券行
-const APP_VER='4.0'; // 每次發布跟 android/build.sh 的 VERSION_NAME 一起改
+const APP_VER='4.1'; // 每次發布跟 android/build.sh 的 VERSION_NAME 一起改
 $('appVer').textContent='版本 '+APP_VER;
 setTheme(store('lucky.theme')||'auto');
 renderHist(); renderAll(false);
