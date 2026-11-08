@@ -415,7 +415,7 @@ body.can-save .save{display:inline-block}
   </div>
   <section class="slip" id="todayBox" data-tab="pick" aria-label="今日數學模型預測">
     <div class="row"><h2>今日數學模型預測</h2><span class="rule" id="todayMeta"></span></div>
-    <p class="rule">「每日學習綜合」：7 個統計模型每期開獎後依實際表現自動調整權重（表現好的權重變大），再加權投票出下一期號碼。新開獎後自動重算。</p>
+    <p class="rule">「每日學習綜合」：多個統計模型（3星／4星是每一位分開算）每期開獎後依實際表現自動調整權重（表現好的權重變大），再加權投票出下一期號碼。新開獎後自動重算。</p>
     <div class="today-list" id="todayList"><p class="rule">計算中…</p></div>
     <p class="note">這裡只看模型的預測；要產生買的號碼請用「重新選號」（統計模型的第 1 組就是這裡的號碼）。號碼由數學模型依歷年開獎算出，不是亂數；但回測顯示命中率跟隨機選號差不多，請當參考就好。全部模型與各彩券的回測在「分析工具 → 預測實驗室」。</p>
   </section>
@@ -859,7 +859,7 @@ const LAB_METHODS=[
 const HEDGE_ETA=0.05;
 const VOTE_FROM=['hot','recent','due','ml','bayes','markov','pair']; // 綜合評分：這些模型各選一組，被選中最多次的號碼優先（同票看貝氏分數）
 // 數學模型的參數（scripts/ai-predict.mjs 有同一套，兩邊要一起改）
-const LAB_VER=3;           // 改了預測方法就加一，讓裝置上存的舊結果失效
+const LAB_VER=4;           // 改了預測方法就加一，讓裝置上存的舊結果失效
 const LAB_DECAY=0.97;       // 貝氏：每過一期，舊資料的權重乘上 0.97（約 33 期前的資料只剩一半影響力）
 const ML_FEATS=['基本傾向','近 10 期','近 50 期','歷年','遺漏期數'];
 function seeded(seed){let s=seed>>>0;return()=>{s=s+0x6D2B79F5|0;let t=Math.imul(s^s>>>15,1|s);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296}}
@@ -1021,8 +1021,10 @@ function renderLabLog(L){
   $('labLogSum').innerHTML=n?`最近 ${n} 期：平均每期猜中 <b>${(hits/n).toFixed(2)}</b> 個（隨機選號理論值 ${L.expHits.toFixed(2)} 個），中獎 <b>${wins}</b> 期（理論約 ${(n*L.pAny).toFixed(1)} 期）。亮起來、有紅框的是猜中的號碼。`:'';
 }
 // ---- 3星／4星的統計模型：每一位分開算（3星／4星的號碼是依位置對獎，每位 0–9） ----
+const DIG_ORDER=['hot','recent','due','bayes','markov','repeat','rand','vote','tail','hedge']; // 計算順序（亂數只給 rand 用）
+const DIG_HV=['hot','recent','due','bayes','markov']; // 綜合評分與每日學習綜合用的模型
 const DIG_METHODS=[
-  {id:'vote',name:'綜合評分（5 個模型投票）'},{id:'bayes',name:'貝氏（近期加權）'},{id:'markov',name:'馬可夫鏈（上期→本期）'},
+  {id:'hedge',name:'每日學習綜合（依表現調整權重）'},{id:'vote',name:'綜合評分（5 個模型投票）'},{id:'tail',name:'尾碼統計（中獎關鍵的後兩位）'},{id:'bayes',name:'貝氏（近期加權）'},{id:'markov',name:'馬可夫鏈（上期→本期）'},
   {id:'hot',name:'各位歷年熱門'},{id:'recent',name:'各位近 50 期熱門'},{id:'due',name:'各位很久沒開'},
   {id:'repeat',name:'照抄上一期'},{id:'rand',name:'隨機選號（對照組）'}
 ];
@@ -1039,6 +1041,8 @@ function runLabDigits(id){
   const Z=()=>Array.from({length:D},()=>new Array(10).fill(0));
   const all=Z(), r50=Z(), dec=Z(), last=Array.from({length:D},()=>new Array(10).fill(-1)), trans=Array.from({length:D},()=>Array.from({length:10},()=>new Array(10).fill(0))); // 每一位：上期是 a、本期是 b 的次數
   const arg=(arr,tie)=>{let b=0;for(let d=1;d<10;d++){if(arr[d]>arr[b]||(arr[d]===arr[b]&&tie&&tie[d]>tie[b]))b=d}return b};
+  const tailCnt=new Array(100).fill(0); // 後兩位各種組合（00–99）歷年開出次數
+  const hw={}; DIG_HV.forEach(c=>hw[c]=1/DIG_HV.length); // 每日學習綜合的權重
   const pick=(m,i,prev,rng,cache)=>{
     if(m==='rand')return Array.from({length:D},()=>Math.floor(rng()*10));
     if(m==='repeat')return prev.nums.slice();
@@ -1047,22 +1051,28 @@ function runLabDigits(id){
     if(m==='due')return last.map(a=>arg(a.map(x=>i-x)));
     if(m==='bayes')return dec.map(a=>arg(a));
     if(m==='markov')return trans.map((t,pos)=>arg(t[prev.nums[pos]],dec[pos]));
-    if(m==='vote'){const vs=['hot','recent','due','bayes','markov'].map(c=>(cache&&cache[c])||pick(c,i,prev,rng));
+    if(m==='vote'){const vs=DIG_HV.map(c=>(cache&&cache[c])||pick(c,i,prev,rng));
       return Array.from({length:D},(_,pos)=>{const c=new Array(10).fill(0);vs.forEach(z=>c[z[pos]]++);return arg(c,dec[pos])})}
+    if(m==='hedge'){const vs=DIG_HV.map(c=>[hw[c],(cache&&cache[c])||pick(c,i,prev,rng)]);
+      return Array.from({length:D},(_,pos)=>{const c=new Array(10).fill(0);vs.forEach(([w2,z])=>{c[z[pos]]+=w2});return arg(c,dec[pos])})}
+    if(m==='tail'){let b=0;for(let x=1;x<100;x++)if(tailCnt[x]>tailCnt[b])b=x;
+      return Array.from({length:D},(_,pos)=>pos===D-2?Math.floor(b/10):pos===D-1?b%10:arg(dec[pos]))}
   };
   const res={}; DIG_METHODS.forEach(m=>res[m.id]={hits:0,prize:0,cnt:0});
   for(let i=0;i<draws.length;i++){
     const d=draws[i], prev=i?draws[i-1]:null;
     if(i>=LAB_WARM){const rng=seeded(Number(d.period)||i), cache={};
-      for(const m of ['hot','recent','due','bayes','markov','repeat','rand','vote']){const z=cache[m]=pick(m,i,prev,rng,cache);const r=res[m];r.cnt++;r.hits+=z.filter((v,k)=>v===d.nums[k]).length;if(digitPrize(D,z,d.nums))r.prize++}}
+      for(const m of DIG_ORDER){const z=cache[m]=pick(m,i,prev,rng,cache);const r=res[m];r.cnt++;r.hits+=z.filter((v,k)=>v===d.nums[k]).length;if(digitPrize(D,z,d.nums))r.prize++}
+      let tot=0; for(const c of DIG_HV){const k=cache[c].filter((v,j)=>v===d.nums[j]).length;hw[c]*=Math.exp(HEDGE_ETA*(k-D/10));tot+=hw[c]} for(const c of DIG_HV)hw[c]/=tot;}
+    tailCnt[d.nums[D-2]*10+d.nums[D-1]]++;
     for(let pos=0;pos<D;pos++){const v=d.nums[pos];for(let k=0;k<10;k++)dec[pos][k]*=LAB_DECAY;dec[pos][v]+=1;all[pos][v]++;r50[pos][v]++;last[pos][v]=i;if(prev)trans[pos][prev.nums[pos]][v]++;if(i>=50)r50[pos][draws[i-50].nums[pos]]--}
   }
   const N=draws.length, lastD=draws[N-1], nrng=seeded((Number(lastD.period)||N)+1), nc={};
-  for(const m of ['hot','recent','due','bayes','markov','repeat','rand','vote'])nc[m]=pick(m,N,lastD,nrng,nc);
+  for(const m of DIG_ORDER)nc[m]=pick(m,N,lastD,nrng,nc);
   const t=TIERS[id], pAny=t.list.reduce((s2,x)=>s2+x[2],0)/t.total, expHits=D/10, varHits=D*0.1*0.9;
   const rows=DIG_METHODS.map(m=>{const r=res[m.id],avg=r.hits/r.cnt,pr=r.prize/r.cnt;return{...m,avg,pr,z:(avg-expHits)/Math.sqrt(varHits/r.cnt),zp:(pr-pAny)/Math.sqrt(pAny*(1-pAny)/r.cnt)}});
   const next=DIG_METHODS.map(m=>({id:m.id,name:m.name,z1:nc[m.id],z2:null}));
-  const out=labCache[id]={key,id,digits:true,draws:N,tested:N-LAB_WARM,to:lastD.period,expHits,pAny,rows,next};
+  const out=labCache[id]={key,id,digits:true,draws:N,tested:N-LAB_WARM,to:lastD.period,expHits,pAny,rows,next,hw:{...hw}};
   store('lucky.lab.'+id,out); return out;
 }
 function renderLabDigits(){
@@ -1696,6 +1706,7 @@ function renderEV(){
   $('evLog').innerHTML=log.length?`<span class="lbl">每晚排程記錄的期望值：</span>`+log.map(x=>`<span class="chip" title="${String(x.madeAt||'').slice(0,10)}">第 ${(Number(x.afterPeriod)%1e6)+1} 期 ${Math.round(Number(x.ret)*100)}%</span>`).join(''):'';
 }
 // ---- 今日數學模型預測：三種彩券的「每日學習綜合」下一期號碼 ----
+const MODEL_SHORT_D={hot:'各位熱門',recent:'近 50 期',due:'很久沒開',bayes:'貝氏',markov:'馬可夫鏈'};
 const MODEL_SHORT={hot:'歷年熱門',recent:'近 50 期',due:'遺漏',ml:'機器學習',bayes:'貝氏',markov:'馬可夫鏈',pair:'號碼配對'};
 let todaySets={}, todayTimer=null;
 function nextDrawOf(id){ // 下一次開獎的日期（台北時間）
@@ -1707,21 +1718,21 @@ function nextDrawOf(id){ // 下一次開獎的日期（台北時間）
 function scheduleToday(){clearTimeout(todayTimer);todayTimer=setTimeout(renderToday,60)}
 function renderToday(){
   const box=$('todayList'); if(!box)return;
-  const ids=['lotto','power','d539'].filter(id=>labDraws(id)); if(!ids.length){box.innerHTML='<p class="rule">歷年開獎資料載入中…</p>';return}
+  const ids=['lotto','power','d539','s3','s4'].filter(id=>GAMES[id].digits?digitDraws(id):labDraws(id)); if(!ids.length){box.innerHTML='<p class="rule">歷年開獎資料載入中…</p>';return}
   ids.sort((a,b)=>((nextDrawOf(a)||{d:9}).d-(nextDrawOf(b)||{d:9}).d));
   const rows=[]; todaySets={};
   for(const id of ids){
-    const L=runLab(id); if(!L)continue;
-    const g=GAMES[id], p=L.next.find(x=>x.id==='hedge'), r=L.rows.find(x=>x.id==='hedge'), nd=nextDrawOf(id);
+    const g=GAMES[id], L=g.digits?runLabDigits(id):runLab(id); if(!L)continue;
+    const p=L.next.find(x=>x.id==='hedge'), r=L.rows.find(x=>x.id==='hedge'), nd=nextDrawOf(id), short=g.digits?MODEL_SHORT_D:MODEL_SHORT, unit=g.digits?'位':'個';
     if(!p)continue; todaySets[id]={z1:p.z1.slice(),z2:p.z2?[p.z2]:[]};
-    const wts=L.hw?Object.entries(L.hw).sort((a,b)=>b[1]-a[1]).slice(0,3).map(([k,v])=>`${MODEL_SHORT[k]||k} ${Math.round(v*100)}%`).join('、'):'';
+    const wts=L.hw?Object.entries(L.hw).sort((a,b)=>b[1]-a[1]).slice(0,3).map(([k,v])=>`${short[k]||k} ${Math.round(v*100)}%`).join('、'):'';
     const a=aiData[id], am=a&&Array.isArray(a.methods)?a.methods.find(x=>x.id==='hedge'):null;
-    const rec=am&&Number(am.n)>0?`事先存證：已對獎 ${am.n} 期，平均對中 ${(am.hits/am.n).toFixed(2)} 個（隨機 ${Number(a.expHits).toFixed(2)}）`:'每晚排程會在開獎前存下這組，開獎後自動對獎累積成績';
+    const rec=am&&Number(am.n)>0?`事先存證：已對獎 ${am.n} 期，平均對中 ${(am.hits/am.n).toFixed(2)} ${unit}（隨機 ${Number(a.expHits).toFixed(2)}）`:'每晚排程會在開獎前存下這組，開獎後自動對獎累積成績';
     rows.push(`<div class="today-row"><div class="today-head"><b>${g.name}</b><span>${nd?nd.text+' 開獎':''}</span></div>`+
-      `<div class="set">${p.z1.map(v=>`<span class="ball sm">${fmt(v,2)}</span>`).join('')}${p.z2?`<span class="sep">＋</span><span class="ball sm z2">${fmt(p.z2,2)}</span>`:''}`+
+      `<div class="set">${p.z1.map(v=>`<span class="ball sm">${g.digits?v:fmt(v,2)}</span>`).join('')}${p.z2?`<span class="sep">＋</span><span class="ball sm z2">${fmt(p.z2,2)}</span>`:''}`+
       `<button type="button" class="ghost save" data-today="${id}">存這組</button></div>`+
       `<p class="rule">學到 ${rocYear(L.to)} 年第 ${Number(L.to)%1e6} 期（共 ${L.draws.toLocaleString('en-US')} 期）· 目前權重最高：${wts}</p>`+
-      `<p class="rule">回測 ${L.tested.toLocaleString('en-US')} 期平均對中 ${r?r.avg.toFixed(3):'—'} 個（隨機 ${L.expHits.toFixed(3)}）· ${rec}</p></div>`);
+      `<p class="rule">回測 ${L.tested.toLocaleString('en-US')} 期平均對中 ${r?r.avg.toFixed(3):'—'} ${unit}（隨機 ${L.expHits.toFixed(3)}）· ${rec}</p></div>`);
   }
   box.innerHTML=rows.join('')||'<p class="rule">計算中…</p>';
   $('todayMeta').textContent=new Date(Date.now()+8*3600e3).toISOString().slice(5,10).replace('-','/')+' 更新';
@@ -2131,7 +2142,7 @@ async function standalone(){
   Promise.all([pS,pH]).then(fillHistoryGap);
   // AI 事先存好的預測：每晚排程推到公開網頁的 ai.json；App 內建檔案沒有，直接讀網站上的
   const AI_URL=location.protocol==='file:'?'https://bkhotey4.github.io/taiwan-lottery-picker-web/ai.json':'ai.json';
-  fetch(AI_URL,{cache:'no-cache'}).then(r=>r.ok?r.json():null).then(j=>{if(j&&typeof j==='object'){for(const id of ['lotto','power','d539'])if(j[id]&&typeof j[id]==='object')aiData[id]=j[id];renderAI();renderEV();scheduleToday()}}).catch(()=>{});
+  fetch(AI_URL,{cache:'no-cache'}).then(r=>r.ok?r.json():null).then(j=>{if(j&&typeof j==='object'){for(const id of ['lotto','power','d539','s3','s4'])if(j[id]&&typeof j[id]==='object')aiData[id]=j[id];renderAI();renderEV();scheduleToday()}}).catch(()=>{});
   const ids=Object.keys(TL_SRC), res=await Promise.allSettled(ids.map(fetchGame));
   res.forEach((r,i)=>{if(r.status==='fulfilled'&&r.value)latest[ids[i]]=r.value});
   latestFailed=!Object.keys(latest).length;
@@ -2148,7 +2159,7 @@ async function refreshLive(force){
     const ids=Object.keys(TL_SRC), res=await Promise.allSettled(ids.map(fetchGame)); let changed=false;
     res.forEach((r,i)=>{if(r.status==='fulfilled'&&r.value){const o=latest[ids[i]];if(!o||o.period!==r.value.period)changed=true;latest[ids[i]]=r.value}});
     const AI_URL=location.protocol==='file:'?'https://bkhotey4.github.io/taiwan-lottery-picker-web/ai.json':'ai.json';
-    try{const j=await fetch(AI_URL,{cache:'no-cache'}).then(r=>r.ok?r.json():null);if(j&&typeof j==='object')for(const id of ['lotto','power','d539'])if(j[id]&&typeof j[id]==='object'){if(!aiData[id]||aiData[id].updatedAt!==j[id].updatedAt)changed=true;aiData[id]=j[id]}}catch(e){}
+    try{const j=await fetch(AI_URL,{cache:'no-cache'}).then(r=>r.ok?r.json():null);if(j&&typeof j==='object')for(const id of ['lotto','power','d539','s3','s4'])if(j[id]&&typeof j[id]==='object'){if(!aiData[id]||aiData[id].updatedAt!==j[id].updatedAt)changed=true;aiData[id]=j[id]}}catch(e){}
     liveAt=Date.now(); latestFailed=!Object.keys(latest).length;
     if(changed){renderLatest();renderPicks();renderLab();renderAI();renderEV();if(target==='stat')run(false,false);scheduleToday()}
     renderNextDraw();
