@@ -97,6 +97,9 @@ h2{font-size:15px;margin:0;letter-spacing:.04em}
 .freq-sum{margin:0;font-size:14px}
 .freq-sum b{font-family:var(--f-num)}
 #freqZ2 h3{font-size:13px;margin:6px 0 4px;color:var(--muted);font-weight:500}
+.head-row{display:flex;justify-content:space-between;align-items:flex-start;gap:12px}
+.install{flex:none;font:inherit;font-weight:700;font-size:14px;background:var(--ink);color:var(--paper);border:0;border-radius:999px;padding:8px 14px;cursor:pointer;margin-top:6px}
+.install-hint{font-size:13px;color:var(--ink);background:var(--paper);border:1.5px solid var(--line);border-radius:10px;padding:10px 12px;margin:10px 0 0}
 /* 版面：手機一欄（兩個 .col 攤平成同一層）＋跳轉按鈕黏在上方；寬螢幕左右兩欄，左欄固定 */
 .col{display:contents}
 .jump{display:flex;gap:6px;overflow-x:auto;scrollbar-width:none;position:sticky;top:0;z-index:5;background:var(--bg);padding-block:8px;margin-block:-8px}
@@ -149,8 +152,14 @@ body.can-save .save{display:inline-block}
 <div class="wrap">
 <div class="col col-main">
   <header>
-    <h1>今晚<span>號碼</span>機</h1>
-    <p>台灣彩券隨機選號，自己玩的娛樂工具</p>
+    <div class="head-row">
+      <div>
+        <h1>今晚<span>號碼</span>機</h1>
+        <p>台灣彩券隨機選號，自己玩的娛樂工具</p>
+      </div>
+      <button type="button" class="install" id="installBtn" hidden>安裝 App</button>
+    </div>
+    <p class="install-hint" id="installHint" hidden>iPhone／iPad：用 <b>Safari</b> 打開這個網頁 → 點下方的「分享」按鈕 → 選「加入主畫面」，主畫面就會出現號碼機的圖示。</p>
   </header>
 
   <div class="tabs" role="group" aria-label="選擇彩種" id="tabs"></div>
@@ -770,6 +779,25 @@ function renderHist(){
 function renderAll(anim){renderTabs();renderRule();run(anim)}
 $('go').onclick=()=>run(true);
 bindWheel();
+// ---- 可安裝的 App（只在獨立網頁上；Claude 頁面不需要） ----
+if(!window.claude&&location.protocol==='https:'){
+  const head=document.head||document.documentElement;
+  const link=(rel,href,sizes)=>{const l=document.createElement('link');l.rel=rel;l.href=href;if(sizes)l.sizes=sizes;head.appendChild(l)};
+  const meta=(name,content)=>{const m=document.createElement('meta');m.name=name;m.content=content;head.appendChild(m)};
+  link('manifest','manifest.webmanifest'); link('apple-touch-icon','icons/apple-touch-icon.png'); link('icon','icons/favicon-32.png','32x32');
+  meta('theme-color','#c8102e'); meta('apple-mobile-web-app-capable','yes'); meta('mobile-web-app-capable','yes'); meta('apple-mobile-web-app-title','號碼機');
+  if('serviceWorker' in navigator)navigator.serviceWorker.register('sw.js').catch(()=>{});
+  const installed=matchMedia('(display-mode: standalone)').matches||navigator.standalone===true;
+  const ios=/iphone|ipad|ipod/i.test(navigator.userAgent)||(navigator.platform==='MacIntel'&&navigator.maxTouchPoints>1);
+  let deferred=null;
+  addEventListener('beforeinstallprompt',e=>{e.preventDefault();deferred=e;if(!installed)$('installBtn').hidden=false});
+  addEventListener('appinstalled',()=>{$('installBtn').hidden=true;$('installHint').hidden=true});
+  if(ios&&!installed)$('installBtn').hidden=false; // iPhone 沒有安裝視窗，按了顯示「加入主畫面」教學
+  $('installBtn').onclick=async()=>{
+    if(deferred){deferred.prompt();const r=await deferred.userChoice.catch(()=>null);deferred=null;if(r&&r.outcome==='accepted')$('installBtn').hidden=true}
+    else $('installHint').hidden=!$('installHint').hidden;
+  };
+}
 // 跳轉按鈕：對應區塊隱藏時（例如 3星彩沒有包牌）按鈕也跟著藏起來
 document.querySelectorAll('.jump a').forEach(a=>{
   const t=document.querySelector(a.getAttribute('href'));
