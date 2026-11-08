@@ -399,6 +399,15 @@ body.can-save .save{display:inline-block}
     </div>
     <p class="msg" id="ckMsg"></p>
     <div class="ck-out" id="ckOut"></div>
+    <h3 class="lab-h">查某一期開了什麼</h3>
+    <div class="controls">
+      <label class="field grow">期別
+        <input id="pdIn" inputmode="numeric" placeholder="例如 103（今年第 103 期）或 114-52">
+      </label>
+      <button type="button" class="ghost" id="pdGo">查</button>
+    </div>
+    <p class="msg" id="pdMsg"></p>
+    <div class="ck-out" id="pdOut"></div>
   </section>
 
   <section class="slip" id="picksBox" hidden>
@@ -702,7 +711,7 @@ $('wheelCopy').onclick=async()=>{
 };
 }
 
-// ---- 歷年號碼開出次數：資料來自 stats/all（Claude 頁面）或 stats.json（獨立網頁） ----
+// ---- 歷年號碼開出次數：資料來自 stats.json ----
 let stats=null;
 function cleanStat(s,max){
   if(!s||typeof s!=='object')return null;
@@ -842,7 +851,7 @@ function runLab(id){
     return{...m,avg,pr,z:(avg-expHits)/Math.sqrt(varHits/r.cnt),zp:(pr-pAny)/Math.sqrt(pAny*(1-pAny)/r.cnt),a1:r.h1/r.c1,a2:r.h2/r.c2}});
   return labCache[id]={key,id,draws:N,tested:total,from:draws[LAB_WARM].period,to:lastD.period,expHits,pAny,rows,next,w:w.slice(),log:Object.values(logs).reverse()};
 }
-// ---- AI 事先存好的預測：資料由 Claude 每晚排程（scripts/ai-predict.mjs）寫入 ai/<彩種> ----
+// ---- AI 事先存好的預測：資料由每晚排程（scripts/ai-predict.mjs）推到公開網頁的 ai.json ----
 let aiData={}, aiPredList=[];
 function renderAI(){
   const box=$('aiBox'), a=aiData[cur], g=GAMES[cur];
@@ -1395,6 +1404,30 @@ function renderEV(){
   const log=aiData[cur]&&Array.isArray(aiData[cur].evLog)?aiData[cur].evLog.filter(x=>x&&Number.isFinite(Number(x.ret))).slice(-12):[];
   $('evLog').innerHTML=log.length?`<span class="lbl">每晚排程記錄的期望值：</span>`+log.map(x=>`<span class="chip" title="${String(x.madeAt||'').slice(0,10)}">第 ${(Number(x.afterPeriod)%1e6)+1} 期 ${Math.round(Number(x.ret)*100)}%</span>`).join(''):'';
 }
+// ---- 查某一期開獎：大樂透／威力彩／今彩539 有歷年每一期，3星／4星只有最近幾期 ----
+function allDraws(id){ // 舊→新：{period,date,numbers,special,prizes}
+  const g=GAMES[id];
+  if(!g.digits){const {list}=pickDraws(id);return list}
+  const r=latest[id]; return r&&Array.isArray(r.recent)?r.recent.map(cleanDraw).filter(Boolean).sort((a,b)=>Number(a.period)-Number(b.period)):[];
+}
+function runPeriod(){
+  const id=cur, g=GAMES[id], raw=$('pdIn').value.trim(), out=$('pdOut'), msg=t=>{$('pdMsg').textContent=t};
+  const list=allDraws(id); if(!list.length){out.innerHTML='';return msg('開獎資料還沒載入，稍後再試')}
+  const lastP=Number(list[list.length-1].period); let want=null;
+  const m2=raw.match(/^(\d{2,3})\D+(\d{1,6})\D*$/), d=raw.replace(/\D/g,'');
+  if(m2)want=Number(m2[1])*1e6+Number(m2[2]);
+  else if(d.length>=7)want=Number(d);
+  else if(d)want=Math.floor(lastP/1e6)*1e6+Number(d);
+  if(!want){out.innerHTML='';return msg('請輸入期別，例如 103 或 114-52')}
+  const dr=list.find(x=>Number(x.period)===want);
+  if(!dr){out.innerHTML='';return msg(`找不到 ${Math.floor(want/1e6)} 年第 ${want%1e6} 期`+(g.digits?'（3星／4星只有最近幾期的資料）':''))}
+  msg('');
+  const balls=dr.numbers.map(v=>`<span class="ball sm">${g.digits?v:fmt(v,2)}</span>`).join('')+(dr.special!=null?`<span class="sep">＋</span><span class="ball sm z2">${fmt(dr.special,2)}</span>`:'');
+  const parts=[`<p><b>${rocYear(dr.period)} 年第 ${Number(dr.period)%1e6} 期</b>${dr.date?`（${dr.date}）`:''}</p>`,`<div class="set">${balls}</div>`];
+  if(dr.prizes&&Object.keys(dr.prizes).length)parts.push(`<p class="rule">每注獎金：${TIERS[id].list.map(x=>x[0]).filter(n=>dr.prizes[n]>0).map(n=>`${n} ${Math.round(dr.prizes[n]).toLocaleString('en-US')} 元`).join('、')}</p>`);
+  if(ckLast&&ckLast.id===id){const mm=matchSet(id,ckLast,dr);parts.push(`<p>拿上面查的號碼對照：${mm.hitTxt} → <b>${mm.prize||'沒中獎'}</b></p>`)}
+  out.innerHTML=parts.join('');
+}
 // ---- 查我的號碼 ----
 let ckLast=null;
 function parseSet(id,rawNums,rawZ2){ // 回傳 {z1,z2} 或 {err}
@@ -1410,6 +1443,7 @@ function syncCheck(){
   const g=GAMES[cur]; $('ckMeta').textContent=g.name; $('ckZ2Wrap').hidden=!g.z2;
   $('ckNums').placeholder=g.digits?`${g.digits} 位數，例如 ${'4729'.slice(0,g.digits)}`:`${g.z1.n} 個號碼，例如 ${[3,10,19,27,33,38].slice(0,g.z1.n).map(v=>fmt(v,2)).join(' ')}`;
   if(ckLast&&ckLast.id!==cur){$('ckOut').innerHTML='';$('ckMsg').textContent='';ckLast=null}
+  $('pdOut').innerHTML=''; $('pdMsg').textContent='';
 }
 function runCheck(){
   const id=cur, g=GAMES[id], r=parseSet(id,$('ckNums').value,$('ckZ2').value), out=$('ckOut');
@@ -1446,6 +1480,7 @@ async function savePick(id,z1,z2,extra){
 }
 function bindCheck(){
   $('ckGo').onclick=runCheck;
+  $('pdGo').onclick=runPeriod; $('pdIn').addEventListener('keydown',e=>{if(e.key==='Enter')runPeriod()});
   [$('ckNums'),$('ckZ2')].forEach(el=>el.addEventListener('keydown',e=>{if(e.key==='Enter')runCheck()}));
 }
 // ---- 長期模擬：大數法則＋蒙地卡羅 ----
@@ -1505,11 +1540,7 @@ async function doExport(){
   if(!picks.length)return toolMsg('還沒有存號碼可以匯出');
   const text=exportText(), name=`彩券號碼機-存的號碼-${taipei(new Date().toISOString()).date}.json`;
   if(NATIVE&&NATIVE.share){NATIVE.share(name,text);return toolMsg('已開啟分享，可以存到雲端硬碟或傳給自己')}
-  if(window.claude&&typeof window.claude.use==='function'){
-    let dl=null; try{dl=await window.claude.use('downloads')}catch(e){}
-    if(dl){try{await dl.save({filename:name,data:text});return toolMsg('已匯出 '+name)}
-      catch(e){if(e&&e.code==='declined')return toolMsg('已取消匯出')}}
-  }else try{
+  try{
     const a=document.createElement('a'); a.href=URL.createObjectURL(new Blob([text],{type:'application/json'})); a.download=name;
     document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(a.href),10000);
     return toolMsg('已下載 '+name);
@@ -1779,31 +1810,7 @@ async function standalone(){
   renderLatest(); renderPicks(); renderLab();
 }
 
-(async()=>{
-  let db=null;
-  if(window.claude&&typeof window.claude.use==='function'){try{db=await window.claude.use('db')}catch(e){}}
-  if(!db){standalone();return} // 不在 Claude 頁面裡（或沒登入）：改用獨立網頁模式
-  const timer=setTimeout(()=>{if(!Object.keys(latest).length){latestFailed=true;renderLatest()}},10000);
-  db.collection('results').onSnapshot(snap=>{
-    if(!snap.metadata.fromCache)clearTimeout(timer);
-    const next={}; snap.docs.forEach(d=>{if(d.exists&&GAMES[d.id])next[d.id]=d.data()});
-    latest=next; latestFailed=false; renderLatest(); renderPicks(); renderLab();
-  },()=>{clearTimeout(timer);latestFailed=!Object.keys(latest).length;renderLatest()});
-  db.doc('stats/all').onSnapshot(d=>{if(d.exists){stats=d.data();renderFreq();renderRecIntro()}},()=>{});
-  ['lotto','power','d539'].forEach(id=>db.doc('ai/'+id).onSnapshot(d=>{aiData[id]=d.exists?d.data():null;if(id===cur)renderAI()},()=>{})); // 每晚排程存的 AI 預測與對獎
-  ['lotto','power','d539'].forEach(id=>db.doc('history/'+id).onSnapshot(d=>{if(d.exists){histData[id]=d.data();if(id===cur)renderLab();renderPicks();renderSaveButtons()}},()=>{}));
-  // 存號碼要知道是誰（沒登入就不提供）
-  let uid=null; try{const user=await window.claude.use('user'); uid=user?await user.id():null}catch(e){}
-  if(!uid)return;
-  try{picksCol=db.doc(`data/users/${uid}/profile`).collection('picks')}catch(e){return}
-  document.body.classList.add('can-save'); renderPicks();
-  const ptimer=setTimeout(()=>{if(!picksReady){picksReady=true;renderPicks()}},10000);
-  picksCol.orderBy('createdAt','desc').limit(MAX_PICKS).onSnapshot(snap=>{
-    if(!snap.metadata.fromCache)clearTimeout(ptimer);
-    picks=snap.docs.filter(d=>d.exists&&/^[\w-]+$/.test(d.id)).map(d=>cleanPick({...d.data(),id:d.id})).filter(Boolean);
-    picksReady=true; renderPicks(); renderSaveButtons();
-  },()=>{clearTimeout(ptimer);picksCol=null;document.body.classList.remove('can-save');renderPicks()});
-})();
+standalone(); // 開獎直接向台灣彩券 API 抓，存的號碼放在這台裝置
 function renderAvoid(){
   const g=GAMES[cur], off=!!g.digits;
   $('spread').checked=spread&&!off; $('spread').disabled=off; $('spreadWrap').classList.toggle('off',off);
@@ -1829,8 +1836,8 @@ bindLab();
 bindManual();
 bindIO(); bindCap(); bindSim(); bindCheck();
 $('recGo').onclick=doRecommend;
-// ---- 可安裝的 App（只在獨立網頁上；Claude 頁面不需要） ----
-if(!window.claude&&location.protocol==='https:'){
+// ---- 可安裝的 App（https 網頁才能安裝；App 內建頁面是 file:） ----
+if(location.protocol==='https:'){
   const head=document.head||document.documentElement;
   const link=(rel,href,sizes)=>{const l=document.createElement('link');l.rel=rel;l.href=href;if(sizes)l.sizes=sizes;head.appendChild(l)};
   const meta=(name,content)=>{const m=document.createElement('meta');m.name=name;m.content=content;head.appendChild(m)};
@@ -1854,7 +1861,7 @@ if(!window.claude&&location.protocol==='https:'){
 }
 // 跳轉按鈕：對應區塊隱藏時（例如 3星彩沒有包牌）按鈕也跟著藏起來
 // ---- 比較少用的區塊預設收合，只顯示標題和一句說明（展開狀態記在這台裝置） ----
-const FOLD={labBox:'7 種預測方法的回測、最近每一期的比對、AI 事先存好的預測',wheelBox:'輸入 7–16 個號碼，算包牌要幾注、花多少、中獎機率',budgetBox:'同樣的錢買不同彩種，哪個比較容易中',checkBox:'輸入自己的號碼：歷年會中幾次、多少人選、萬一中頭獎實拿多少',simBox:'每期買幾注、連買幾年，模擬 2,000 個人最後賺賠的分布',freqBox:'每個號碼歷年開出幾次，跟公平抽球比較'};
+const FOLD={labBox:'7 種預測方法的回測、最近每一期的比對、AI 事先存好的預測',wheelBox:'輸入 7–16 個號碼，算包牌要幾注、花多少、中獎機率',budgetBox:'同樣的錢買不同彩種，哪個比較容易中',checkBox:'輸入自己的號碼：歷年會中幾次、多少人選、萬一中頭獎實拿多少；也能查某一期開了什麼',simBox:'每期買幾注、連買幾年，模擬 2,000 個人最後賺賠的分布',freqBox:'每個號碼歷年開出幾次，跟公平抽球比較'};
 function bindFold(){
   let open=store('lucky.fold'); if(!open||typeof open!=='object')open={};
   for(const [id,hint] of Object.entries(FOLD)){
