@@ -77,6 +77,11 @@ button:focus-visible,input:focus-visible,select:focus-visible{outline:3px solid 
 .ev-bar .base{position:absolute;top:-2px;bottom:-2px;width:2px;background:var(--accent)}
 .ev-scale{display:flex;justify-content:space-between;font-size:11px;color:var(--muted);margin-top:3px}
 .ev-body p{margin:8px 0 0;font-size:13px;line-height:1.6}
+.ev-line{margin:8px 0 0;font-size:13px;line-height:1.6}
+.ev-line b{font-family:var(--f-num)}
+.ev-line:empty{display:none}
+.more-box{margin-top:6px;font-size:13px}
+.more-box summary{cursor:pointer;font-weight:700;color:var(--muted);padding:6px 0}
 .ev-body b{font-family:var(--f-num)}
 .ev-log{display:flex;flex-wrap:wrap;gap:4px;margin-top:8px;font-size:12px}
 .ev-log:empty{display:none}
@@ -106,6 +111,10 @@ h2{font-size:15px;margin:0;letter-spacing:.04em}
 .row{display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap}
 .chance-box{display:flex;flex-direction:column;gap:8px;background:var(--bg);border-radius:10px;padding:12px}
 .chance-box .odds{grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:8px}
+.chance-line{margin:0;font-size:15px;line-height:1.6}
+.chance-line b{font-family:var(--f-num)}
+.chance-more summary{cursor:pointer;font-size:13px;font-weight:700;color:var(--muted);padding:4px 0}
+.chance-more[open] summary{margin-bottom:8px}
 .latest-box{display:flex;flex-direction:column;gap:8px;border:1.5px dashed var(--line);border-radius:10px;padding:12px}
 .latest-box .set{border:0;padding:0}
 .ball.sm{width:34px;height:34px;font-size:14px}
@@ -148,6 +157,16 @@ h2{font-size:15px;margin:0;letter-spacing:.04em}
 .jump a{flex:none;font-size:13px;font-weight:700;color:var(--ink);text-decoration:none;border:1.5px solid var(--line);background:var(--paper);border-radius:999px;padding:5px 12px}
 .jump a:hover{border-color:var(--ink)}
 .jump a[hidden]{display:none}
+.side-tabs{display:flex;gap:6px;background:var(--bg);padding-block:4px}
+.side-tabs button{flex:1;font:inherit;font-weight:700;font-size:14px;padding:10px 8px;border-radius:10px;border:1.5px solid var(--line);background:var(--paper);color:var(--ink);cursor:pointer}
+.side-tabs button[aria-selected="true"]{background:var(--ink);color:var(--paper);border-color:var(--ink)}
+.col-side[data-tab="pick"]>section[data-tab]:not([data-tab="pick"]),
+.col-side[data-tab="mine"]>section[data-tab]:not([data-tab="mine"]),
+.col-side[data-tab="ana"]>section[data-tab]:not([data-tab="ana"]){display:none}
+.jump a[aria-current="true"]{background:var(--ink);color:var(--paper);border-color:var(--ink)}
+.empty-tab{font-size:13px;color:var(--muted);margin:0}
+@media (min-width:960px){.side-tabs{position:sticky;top:0;z-index:4;padding-top:8px;margin-top:-8px}.jump{display:none}}
+@media (max-width:959px){.side-tabs{display:none}}
 [hidden]{display:none!important}
 .wrap>.col>section,.wrap>.col>p{scroll-margin-top:56px}
 @media (min-width:960px){
@@ -256,6 +275,8 @@ body.can-save .save{display:inline-block}
 .news b{font-family:var(--f-num);color:var(--accent)}
 #aiNote{display:block;line-height:1.6}
 .news.due{border-color:var(--pick)}
+.news.intro{border-color:var(--ink);font-size:13px;line-height:1.6}
+.news.intro b{color:var(--ink)}
 .stale{color:var(--accent)}
 .news.due b{color:var(--pick)}
 .ck-out p{margin:8px 0 0;font-size:13px;line-height:1.6}
@@ -301,18 +322,15 @@ body.can-save .save{display:inline-block}
 
   <nav class="jump" aria-label="跳到">
     <a href="#main" class="main-link">選號</a>
-    <a href="#recBox">幫我挑</a>
-    <a href="#evBox">值不值得買</a>
-    <a href="#checkBox">查號碼</a>
-    <a href="#picksBox">我存的號碼</a>
-    <a href="#labBox">預測實驗</a>
-    <a href="#wheelBox">包牌</a>
-    <a href="#budgetBox">預算比較</a>
-    <a href="#simBox">長期模擬</a>
-    <a href="#freqBox">歷年統計</a>
-    <a href="#histBox">選號紀錄</a>
+    <a href="#sideTabs" data-tab="pick">挑號碼</a>
+    <a href="#sideTabs" data-tab="mine">我的號碼</a>
+    <a href="#sideTabs" data-tab="ana">分析工具</a>
   </nav>
 
+  <div class="news intro" id="introBar" hidden role="note">
+    <span><b>第一次用？</b>① 上面選彩種 → ② 按「重新選號」（預設會挑「至少中一個獎」機率最高的組合）→ ③ 喜歡就按「存這組」，開獎後自動對獎。其他功能在「挑號碼」「我的號碼」「分析工具」分頁裡。</span>
+    <span class="news-btns"><button type="button" class="ghost" id="introOk">知道了</button></span>
+  </div>
   <div class="news due" id="dueBar" hidden role="status"><span id="dueText"></span></div>
   <div class="news" id="newsBar" hidden role="status">
     <span id="newsText"></span>
@@ -347,7 +365,8 @@ body.can-save .save{display:inline-block}
     <div class="back-box" id="backOut" hidden></div>
     <div class="chance-box">
       <h2>這次選的號碼，中獎機率</h2>
-      <div class="odds" id="chance"></div>
+      <p class="chance-line" id="chanceLine"></p>
+      <details class="chance-more" id="chanceMore"><summary>看明細</summary><div class="odds" id="chance"></div></details>
     </div>
     <div class="latest-box" id="latest" hidden>
       <div class="row"><h2>最新一期開獎</h2><span class="rule" id="latestMeta"></span></div>
@@ -366,14 +385,22 @@ body.can-save .save{display:inline-block}
   </section>
 </div>
 
-<div class="col col-side">
-  <section class="slip" id="recBox" aria-label="幫我挑一組">
+<div class="col col-side" id="side" data-tab="pick">
+  <div class="side-tabs" id="sideTabs" role="tablist" aria-label="右邊的功能">
+    <button type="button" role="tab" data-tab="pick">挑號碼</button>
+    <button type="button" role="tab" data-tab="mine">我的號碼</button>
+    <button type="button" role="tab" data-tab="ana">分析工具</button>
+  </div>
+  <section class="slip" id="recBox" data-tab="pick" aria-label="幫我挑一組">
     <div class="row"><h2>要簽了嗎？幫我挑一組</h2><span class="rule" id="recMeta"></span></div>
-    <p class="tagline">挑<b>比較少人選</b>的組合：中獎機率跟隨機選號一樣，但萬一中頭獎，比較不用跟別人平分。</p>
+    <p class="tagline" id="recTag"></p>
     <details class="why-box"><summary>怎麼挑的？大家最常選哪些號碼？</summary><p class="rule" id="recIntro"></p></details>
     <div class="controls">
       <label class="field">組數
-        <select id="recCount"><option>1</option><option>2</option><option selected>3</option><option>5</option></select>
+        <select id="recCount"><option>1</option><option>2</option><option selected>3</option><option>5</option><option>10</option></select>
+      </label>
+      <label class="field">目標
+        <select id="recTarget"><option value="max">至少中一個獎機率最大</option><option value="share">萬一中頭獎，少跟人平分</option></select>
       </label>
       <button type="button" class="go" id="recGo">幫我挑</button>
     </div>
@@ -381,17 +408,20 @@ body.can-save .save{display:inline-block}
     <p class="money" id="recScore"></p>
   </section>
 
-  <section class="slip" id="evBox" aria-label="這期值不值得買" hidden>
+  <section class="slip" id="evBox" data-tab="pick" aria-label="這期值不值得買" hidden>
     <div class="row"><h2>這期值不值得買？</h2><span class="rule" id="evMeta"></span></div>
     <p class="ev-head" id="evHead"></p>
     <div class="ev-bar" id="evBar" aria-hidden="true"></div>
     <div class="ev-scale" aria-hidden="true"><span>0</span><span>紅線＝平常</span><span>拿回 100%</span></div>
-    <div class="ev-body" id="evBody"></div>
-    <div class="ev-log" id="evLog"></div>
-    <p class="note">中獎機率每期都一樣，會變的是獎金：頭獎累積越多，平均拿回越多。小獎用最近幾期實際獎金平均，頭獎用台彩公布的累積金額與銷售額估計，超過 5,000 元扣 20% 所得稅。只是估計，實際以官方公告為準。</p>
+    <p class="ev-line" id="evLine"></p>
+    <details class="more-box"><summary>看計算細節</summary>
+      <div class="ev-body" id="evBody"></div>
+      <div class="ev-log" id="evLog"></div>
+      <p class="note">中獎機率每期都一樣，會變的是獎金：頭獎累積越多，平均拿回越多。小獎用最近幾期實際獎金平均，頭獎用台彩公布的累積金額與銷售額估計，超過 5,000 元扣 20% 所得稅。只是估計，實際以官方公告為準。</p>
+    </details>
   </section>
 
-  <section class="slip" id="checkBox" aria-label="查我的號碼">
+  <section class="slip" id="checkBox" data-tab="pick" aria-label="查我的號碼">
     <div class="row"><h2>查我的號碼</h2><span class="rule" id="ckMeta"></span></div>
     <div class="controls">
       <label class="field grow">你的號碼
@@ -415,7 +445,7 @@ body.can-save .save{display:inline-block}
     <div class="ck-out" id="pdOut"></div>
   </section>
 
-  <section class="slip" id="picksBox" hidden>
+  <section class="slip" id="picksBox" data-tab="mine" hidden>
     <div class="row"><h2>我存的號碼</h2><span class="rule" id="picksSum"></span></div>
     <p class="money" id="picksMoney"></p>
     <p class="money" id="capLine"></p>
@@ -464,7 +494,7 @@ body.can-save .save{display:inline-block}
     <p class="note" id="picksNote">按號碼旁的「存這組」就會存在你的帳號裡，手機、電腦都看得到。開獎資料更新後，會自動對照存號碼之後的第一期（晚上 8 點後存的，算下一期）。</p>
   </section>
 
-  <section class="slip" id="labBox" aria-label="預測實驗室" hidden>
+  <section class="slip" id="labBox" data-tab="ana" aria-label="預測實驗室" hidden>
     <div class="row"><h2>預測實驗室：這些方法真的猜得中嗎？</h2><span class="rule" id="labMeta"></span></div>
     <p class="rule">每種方法都只用「開獎前」已知的資料猜下一期，開獎後對獎，一期一期累積成績，再跟理論上的隨機選號比較。機器學習模型每開一期就用結果調整一次。</p>
     <div class="cmp-wrap"><table class="cmp lab">
@@ -494,7 +524,7 @@ body.can-save .save{display:inline-block}
     <p class="note">「和隨機比」用統計檢定：差距在 ±2 個標準差內代表跟隨機選號沒有分別。同時比很多種方法時，偶爾有一種剛好超過 2 也是正常的運氣。開獎是獨立隨機的，過去的號碼沒有可以學的規律，所以不要期待哪個方法長期贏過隨機。</p>
   </section>
 
-  <section class="slip" id="wheelBox" aria-label="包牌試算">
+  <section class="slip" id="wheelBox" data-tab="ana" aria-label="包牌試算">
     <h2>包牌試算</h2>
     <p class="rule" id="wheelRule"></p>
     <div class="controls">
@@ -516,7 +546,7 @@ body.can-save .save{display:inline-block}
     <p class="note">「全包」是把你選的號碼所有組合都買下來。「縮水」用數學的覆蓋設計（covering design），挑出最少的組合，保證「開出的號碼有 m 個落在你選的號碼裡時，至少一注中 t 個」，注數少很多，但只保證到那個獎，中頭獎機率也跟著變小。不管哪一種，頭獎機率都跟隨機買同樣注數一樣，平均拿回的錢也一樣。</p>
   </section>
 
-  <section class="slip" id="budgetBox" aria-label="預算比較">
+  <section class="slip" id="budgetBox" data-tab="ana" aria-label="預算比較">
     <h2>同樣的預算，玩哪個比較容易中？</h2>
     <label class="field">每期預算（元）
       <input id="budget" type="number" min="25" max="100000" step="25" inputmode="numeric" value="100">
@@ -528,7 +558,7 @@ body.can-save .save{display:inline-block}
     <p class="note">每注號碼都不一樣時的機率。中獎機會越高的彩種，獎金通常越小；彩券平均拿回來的錢比花出去的少，買越多平均虧越多，先訂好預算再玩。3星／4星的「頭獎」是固定 5,000／50,000 元的壹獎。</p>
   </section>
 
-  <section class="slip" id="simBox" aria-label="長期模擬">
+  <section class="slip" id="simBox" data-tab="ana" aria-label="長期模擬">
     <div class="row"><h2>如果一直買下去，會怎樣？</h2><span class="rule" id="simMeta"></span></div>
     <p class="rule">用大數法則和蒙地卡羅模擬：照真實的獎項機率與獎金，模擬 2,000 個人照同樣方式買，看最後的結果分布。</p>
     <div class="controls">
@@ -541,12 +571,15 @@ body.can-save .save{display:inline-block}
       <button type="button" class="ghost" id="simGo">開始模擬</button>
     </div>
     <div class="odds" id="simOut"></div>
-    <div class="sim-pct" id="simPct"></div>
-    <p class="freq-sum" id="simSum"></p>
+    <p class="ev-line" id="simLine"></p>
+    <details class="more-box"><summary>看分布與數學說明</summary>
+      <div class="sim-pct" id="simPct"></div>
+      <p class="freq-sum" id="simSum"></p>
+    </details>
     <p class="note">每期獨立抽獎；小獎用最近幾期實際每注獎金平均，頭獎用本期估計金額（含跟別人平分、扣 20% 稅）。凱利公式是讓資金長期成長最快的下注比例：平均拿回的錢少於本金時，答案是 0。</p>
   </section>
 
-  <section class="slip" id="freqBox" aria-label="歷年號碼開出次數" hidden>
+  <section class="slip" id="freqBox" data-tab="ana" aria-label="歷年號碼開出次數" hidden>
     <div class="row"><h2>歷年號碼開出次數</h2><span class="rule" id="freqMeta"></span></div>
     <div class="freq" id="freqChart"></div>
     <div class="freq-tip" id="freqTip">滑過或點一根長條，看那個號碼開出幾次</div>
@@ -556,9 +589,9 @@ body.can-save .save{display:inline-block}
     <p class="note">灰色帶是「公平抽球」下單一號碼常見的次數範圍（電腦模擬 2,000 次的 90% 區間），虛線是理論平均。號碼本來就會有多有少，這些差距在隨機範圍內，不代表哪個號碼比較容易開出，也沒辦法用來提高中獎機率。</p>
   </section>
 
-  <section class="odds" id="odds" aria-label="頭獎機率"></section>
+  <section class="odds" id="odds" data-tab="ana" aria-label="頭獎機率"></section>
 
-  <section class="slip" id="histBox">
+  <section class="slip" id="histBox" data-tab="mine">
     <div class="row"><h2>最近選過的號碼</h2><button class="ghost" id="clear">清除紀錄</button></div>
     <div class="hist" id="hist"></div>
   </section>
@@ -1002,6 +1035,9 @@ function renderChance(){
       :[`這 ${n} 組至少中一個獎`,'約 '+pct(any),`平均每期約中 ${(p*n).toPrecision(2)} 個獎`,true]);
     cards.push([n>1?`這 ${n} 組中${top}`:`這一組中${top}`,oneIn(jp),pct(jp),false]);
   }
+  const optOk=lastOpt&&lastOpt.opt!=null&&n>1&&t.list.length>1;
+  $('chanceLine').innerHTML=n>1?`這 ${n} 組：至少中一個獎 <b>${optOk?(lastOpt.exact?'':'約 ')+pct(lastOpt.opt):(t.list.length>1?'約 ':'')+pct(t.list.length>1?any:jp)}</b>`+(optOk?`（隨機買約 ${pct(any)}）`:'')+` · 中${top} <b>${oneIn(jp)}</b>`
+    :`這一組：中任一獎 <b>${oneIn(p)}</b> · 中${top} <b>${oneIn(jp)}</b>`;
   $('chance').innerHTML=cards.map(([l,v,s,h])=>`<div${h?' class="hl"':''}><small>${l}</small><strong>${v}</strong><em>${s}</em></div>`).join('');
   $('tierRows').innerHTML=t.list.map(([nm,d,c])=>`<tr><td>${nm}</td><td>${d}</td><td>${oneIn(c/t.total)}</td></tr>`).join('');
   $('chanceNote').textContent=`這是開獎前的機率：不管選哪組號碼、有沒有指定必選號碼、有沒有避開熱門選法，機率都一樣。`+(n>1&&t.list.length>1?(lastOpt&&lastOpt.opt!=null?(lastOpt.exact?'「中獎機率最大」讓每組要中的位數都不同，各組不可能同時中獎，所以機率直接相加（精確值）。':'「中獎機率最大」用 6,000 次模擬開獎挑出最不重疊的組合，再用另外 2 萬次模擬估計「至少中一個獎」（誤差約 ±0.4%）。')+'每一組的中獎機率、平均中獎次數與期望值都不變，只是把中獎機會分散開。'
@@ -1389,13 +1425,21 @@ function renderRecIntro(){
   $('recMeta').textContent=g.name;
   renderRecScore();
 }
+function renderRecTag(){
+  const mx=$('recTarget').value==='max';
+  $('recTag').innerHTML=mx?'挑<b>彼此不會同時中獎</b>的組合：每一組機率不變，但買多組時「至少中一個獎」最高（買 1 組時跟隨機一樣）。'
+    :'挑<b>比較少人選</b>的組合：中獎機率跟隨機選號一樣，但萬一中頭獎，比較不用跟別人平分。';
+}
 async function doRecommend(){
-  const id=cur, g=GAMES[id], t=TIERS[id], p=t.list.reduce((a,x)=>a+x[2],0)/t.total, sets=recommendSets(id,+$('recCount').value);
+  const id=cur, g=GAMES[id], t=TIERS[id], p=t.list.reduce((a,x)=>a+x[2],0)/t.total, cnt=+$('recCount').value, mx=$('recTarget').value==='max'&&cnt>1;
+  let opt=null, sets;
+  if(mx){opt=maxWinSets(g,[],cnt);sets=opt.sets.map(s=>({z1:s.z1.slice(),z2:s.z2.slice(),why:[...(g.digits?[]:popScore(id,s.z1).why.slice(0,1)),'跟其他組盡量不會同時中獎']}))}
+  else sets=recommendSets(id,cnt);
   const r=latest[id];
   $('recOut').innerHTML=sets.map((s,i)=>`<div class="rec-set"><span class="idx">${String(i+1).padStart(2,'0')}</span>`+
     s.z1.map(v=>`<span class="ball sm">${g.digits?v:fmt(v,2)}</span>`).join('')+(s.z2.length?`<span class="sep">＋</span><span class="ball sm z2">${fmt(s.z2[0],2)}</span>`:'')+
-    (g.digits?'':`<span class="pop">比較少人選</span><span class="why">${s.why.join('・')}</span>`)+'</div>').join('')+
-    `<p class="rec-note">這 ${sets.length} 組：至少中一個獎約 <b>${pct(t.list.length>1?1-Math.pow(1-p,sets.length):sets.length*p)}</b>，中${g.digits?'壹獎':'頭獎'} <b>${oneIn(sets.length*t.list[0][2]/t.total)}</b>，要花 <b>${(sets.length*PRICE[id]).toLocaleString('en-US')}</b> 元。`+
+    (mx?`<span class="pop">不同時中獎</span><span class="why">${s.why.join('・')}</span>`:g.digits?'':`<span class="pop">比較少人選</span><span class="why">${s.why.join('・')}</span>`)+'</div>').join('')+
+    `<p class="rec-note">這 ${sets.length} 組：至少中一個獎${opt&&opt.opt!=null?(opt.exact?'':'約')+` <b>${pct(opt.opt)}</b>（隨機買約 ${pct(1-Math.pow(1-p,sets.length))}）`:`約 <b>${pct(t.list.length>1?1-Math.pow(1-p,sets.length):sets.length*p)}</b>`}，中${g.digits?'壹獎':'頭獎'} <b>${oneIn(sets.length*t.list[0][2]/t.total)}</b>，要花 <b>${(sets.length*PRICE[id]).toLocaleString('en-US')}</b> 元。`+
     (overCap()?'<b>提醒：這個月已經到你設的花費上限了。</b>':'')+
     (picksCol?'已自動存進「我存的號碼」（標示「推薦」），開獎後會對獎，下面的推薦成績也會更新。':'登入後推薦的號碼會自動存起來對獎。')+'</p>';
   if(!picksCol)return;
@@ -1486,7 +1530,7 @@ function renderEV(){
   if(pd){const diff=(e.jpLeast/e.jpMost-1)*100;
     lines.push(`萬一中頭獎，平均實拿（扣稅、算進跟別人平分）：最少人選的組合約 <b>${money(e.jpLeast)}</b>、一般組合約 ${money(e.jpAvg)}、最多人選的組合約 ${money(e.jpMost)}，相差約 <b>${diff.toFixed(1)}%</b>。`+
       `同一期還有別人也中頭獎的機率約 ${pct(e.pOther)}，${diff>=3?'所以挑比較少人選的號碼有一點幫助。':'所以挑哪組號碼幾乎沒差別。'}`)}
-  $('evBody').innerHTML=lines.map(x=>`<p>${x}</p>`).join('');
+  $('evLine').innerHTML=lines[0]||''; $('evBody').innerHTML=lines.slice(1).map(x=>`<p>${x}</p>`).join('');
   // 每晚排程記錄的期望值走勢（ai.json）
   const log=aiData[cur]&&Array.isArray(aiData[cur].evLog)?aiData[cur].evLog.filter(x=>x&&Number.isFinite(Number(x.ret))).slice(-12):[];
   $('evLog').innerHTML=log.length?`<span class="lbl">每晚排程記錄的期望值：</span>`+log.map(x=>`<span class="chip" title="${String(x.madeAt||'').slice(0,10)}">第 ${(Number(x.afterPeriod)%1e6)+1} 期 ${Math.round(Number(x.ret)*100)}%</span>`).join(''):'';
@@ -1605,6 +1649,7 @@ function runSim(){
   ].map(([l,v,sub,h])=>`<div${h?' class="hl"':''}><small>${l}</small><strong>${v}</strong><em>${sub}</em></div>`).join('');
   $('simPct').innerHTML=[[0.1,'運氣最差的 10%'],[0.5,'中間（一半的人比這差）'],[0.9,'運氣最好的 10%']].map(([f,l])=>`<div><span>${l}</span><b class="${q(f)>=0?'up':'down'}">${yuan(q(f))}</b></div>`).join('');
   const loseRate=-q(0.5)/cost;
+  $('simLine').innerHTML=`花 ${cost.toLocaleString('en-US')} 元，最可能的結果是<b>虧掉約 ${Math.round(loseRate*100)}%</b>；最後有賺錢的人 <b>${pct(win)}</b>。數學上最佳的下注比例是 0%（凱利公式）。`;
   $('simSum').innerHTML=`<b>大數法則：</b>買得越久、越多注，結果就越接近「平均拿回 ${Math.round(evPer/pt.price*100)}%」。這次模擬中間那個人花了 ${cost.toLocaleString('en-US')} 元，虧掉約 <b>${Math.round(loseRate*100)}%</b>。`+
     (win>=0.05?`有 ${pct(win)} 的人最後是賺的，幾乎都是靠中了一次大獎。`:win>0?`只有 ${pct(win)} 的人最後是賺的，都是靠中了比較大的獎。`:'模擬的 2,000 人裡，沒有人最後是賺的。')+
     `<br><b>凱利公式：</b>每注平均拿回 ${evPer.toFixed(1)} 元，少於本金 ${pt.price} 元，數學上最佳的下注比例是 <b>0%</b>。想玩就把它當娛樂費，金額固定、不追加。`;
@@ -1712,7 +1757,7 @@ function renderNews(){
   $('newsText').innerHTML=`上次之後有 <b>${fresh.length}</b> 組存的號碼開獎了：`+(won?`中 <b>${won}</b> 組${amt?`，共 <b>${amt.toLocaleString('en-US')}</b> 元`:''}！`:'這次都沒中。');
   $('newsBar').hidden=false;
   $('newsOk').onclick=()=>{const keep=new Set(picks.map(p=>p.id));store('lucky.seen',[...new Set([...raw,...fresh.map(x=>x.p.id)])].filter(id=>keep.has(id)));$('newsBar').hidden=true};
-  $('newsGo').onclick=()=>{$('newsOk').click();$('picksBox').scrollIntoView({block:'start'})};
+  $('newsGo').onclick=()=>{$('newsOk').click();showTab('mine',false);$('picksBox').scrollIntoView({block:'start'})};
 }
 // ---- 手動輸入自己買的號碼 ----
 function syncManual(){
@@ -1925,6 +1970,9 @@ bindLab();
 bindManual();
 bindIO(); bindCap(); bindSim(); bindCheck(); bindTarget();
 $('recGo').onclick=doRecommend;
+{const rt=store('lucky.recTarget'); if(rt==='share'||rt==='max')$('recTarget').value=rt;}
+$('recTarget').onchange=()=>{store('lucky.recTarget',$('recTarget').value);renderRecTag();$('recOut').innerHTML=''};
+renderRecTag();
 // ---- 可安裝的 App（https 網頁才能安裝；App 內建頁面是 file:） ----
 if(location.protocol==='https:'){
   const head=document.head||document.documentElement;
@@ -1969,16 +2017,23 @@ function bindFold(){
   }
 }
 bindFold();
+// ---- 右欄分頁：挑號碼／我的號碼／分析工具（記在這台裝置） ----
+const SIDE_TABS={pick:'挑號碼',mine:'我的號碼',ana:'分析工具'};
+function showTab(tab,scroll){
+  if(!SIDE_TABS[tab])tab='pick';
+  $('side').dataset.tab=tab; store('lucky.tab',tab);
+  document.querySelectorAll('#sideTabs button').forEach(b=>b.setAttribute('aria-selected',String(b.dataset.tab===tab)));
+  document.querySelectorAll('.jump a[data-tab]').forEach(a=>a.setAttribute('aria-current',String(a.dataset.tab===tab)));
+  if(scroll){const t=$('side');t.scrollIntoView({block:'start',behavior:matchMedia('(prefers-reduced-motion: reduce)').matches?'auto':'smooth'})}
+}
+function sectionTab(el){const sec=el&&el.closest('section[data-tab]');return sec?sec.dataset.tab:null}
+document.querySelectorAll('#sideTabs button').forEach(b=>b.onclick=()=>showTab(b.dataset.tab,false));
+showTab(store('lucky.tab')||'pick',false);
 document.querySelectorAll('.jump a').forEach(a=>{
-  const t=document.querySelector(a.getAttribute('href'));
-  const sync=()=>{a.hidden=!t||t.hidden};
-  if(t)new MutationObserver(sync).observe(t,{attributes:true,attributeFilter:['hidden']});
-  sync();
-  a.addEventListener('click',e=>{e.preventDefault();if(!t||t.hidden)return;
-    if(t.foldOpen)t.foldOpen();
-    const y0=scrollY;
+  a.addEventListener('click',e=>{e.preventDefault();
+    if(a.dataset.tab){showTab(a.dataset.tab,true);return}
+    const t=document.querySelector(a.getAttribute('href')); if(!t)return;
     t.scrollIntoView({behavior:matchMedia('(prefers-reduced-motion: reduce)').matches?'auto':'smooth',block:'start'});
-    setTimeout(()=>{if(scrollY===y0&&Math.abs(t.getBoundingClientRect().top)>80)t.scrollIntoView({block:'start'})},350); // 有些瀏覽器不支援平滑捲動，改成直接跳
   });
 });
 $('avoid').onchange=()=>{avoid=$('avoid').checked;store('lucky.avoid',avoid);renderAvoid();run(true)};
@@ -1990,7 +2045,9 @@ $('must').addEventListener('keydown',e=>{if(e.key==='Enter')run(true)});
 $('clear').onclick=()=>{hist=[];store('lucky.hist',hist);renderHist()};
 $('copy').onclick=async()=>{const g=GAMES[cur];const txt=`${g.name}\n`+last.map((s,i)=>`${i+1}. ${asText(g,s)}`).join('\n');
   try{await navigator.clipboard.writeText(txt);$('copied').textContent='已複製'}catch(e){$('copied').textContent='無法自動複製，請手動選取號碼'}};
+if(matchMedia('(min-width:960px)').matches)$('chanceMore').open=true; // 電腦版預設展開明細
 renderHist(); renderAll(false);
+if(!store('lucky.intro')){$('introBar').hidden=false;$('introOk').onclick=()=>{store('lucky.intro',1);$('introBar').hidden=true}}
 </script>
 
 </body>
