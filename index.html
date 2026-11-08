@@ -62,6 +62,20 @@ button:focus-visible,input:focus-visible,select:focus-visible{outline:3px solid 
 .fold-btn{flex:none;padding:6px 14px;font-size:13px}
 .fold-hint{margin:6px 0 0;font-size:13px;color:var(--muted);cursor:pointer}
 .tagline{margin:4px 0 0;font-size:14px}
+.ev-head{margin:6px 0 0;font-size:15px}
+.ev-head b{font-family:var(--f-num)}
+.ev-tag{display:inline-block;margin-left:8px;padding:1px 8px;border-radius:999px;font-size:12px;border:1px solid var(--line);color:var(--muted);vertical-align:2px}
+.ev-tag.good{border-color:var(--pick);color:var(--pick);font-weight:700}
+.ev-bar{position:relative;height:10px;border-radius:999px;background:var(--bg);margin-top:10px;overflow:hidden}
+.ev-bar .fill{position:absolute;inset:0 auto 0 0;background:var(--pick);border-radius:999px}
+.ev-bar .base{position:absolute;top:-2px;bottom:-2px;width:2px;background:var(--accent)}
+.ev-scale{display:flex;justify-content:space-between;font-size:11px;color:var(--muted);margin-top:3px}
+.ev-body p{margin:8px 0 0;font-size:13px;line-height:1.6}
+.ev-body b{font-family:var(--f-num)}
+.ev-log{display:flex;flex-wrap:wrap;gap:4px;margin-top:8px;font-size:12px}
+.ev-log:empty{display:none}
+.ev-log .lbl{color:var(--muted);margin-right:2px}
+.ev-log .chip{padding:1px 8px;border:1px solid var(--line);border-radius:999px;font-family:var(--f-num)}
 .why-box{font-size:13px;margin-top:6px}
 .why-box summary{cursor:pointer;font-weight:700;color:var(--muted);padding:4px 0}
 .why-box[open] summary{margin-bottom:6px}
@@ -275,6 +289,7 @@ body.can-save .save{display:inline-block}
   <nav class="jump" aria-label="跳到">
     <a href="#main" class="main-link">選號</a>
     <a href="#recBox">幫我挑</a>
+    <a href="#evBox">值不值得買</a>
     <a href="#picksBox">我存的號碼</a>
     <a href="#labBox">預測實驗</a>
     <a href="#wheelBox">包牌</a>
@@ -345,6 +360,16 @@ body.can-save .save{display:inline-block}
     </div>
     <div class="rec-out" id="recOut"></div>
     <p class="money" id="recScore"></p>
+  </section>
+
+  <section class="slip" id="evBox" aria-label="這期值不值得買" hidden>
+    <div class="row"><h2>這期值不值得買？</h2><span class="rule" id="evMeta"></span></div>
+    <p class="ev-head" id="evHead"></p>
+    <div class="ev-bar" id="evBar" aria-hidden="true"></div>
+    <div class="ev-scale" aria-hidden="true"><span>0</span><span>紅線＝平常</span><span>拿回 100%</span></div>
+    <div class="ev-body" id="evBody"></div>
+    <div class="ev-log" id="evLog"></div>
+    <p class="note">中獎機率每期都一樣，會變的是獎金：頭獎累積越多，平均拿回越多。小獎用最近幾期實際獎金平均，頭獎用台彩公布的累積金額與銷售額估計，超過 5,000 元扣 20% 所得稅。只是估計，實際以官方公告為準。</p>
   </section>
 
   <section class="slip" id="picksBox" hidden>
@@ -920,6 +945,7 @@ function prizeName(id,k,sp){
   return null;
 }
 function renderLatest(){
+  renderEV();
   const box=$('latest'), g=GAMES[cur], r=latest[cur];
   if(!r){
     box.hidden=!latestFailed;
@@ -1191,6 +1217,63 @@ function renderRecScore(){
   el.innerHTML=`<b>推薦成績：</b>推薦過 ${recs.length} 組，已開獎 ${drawn} 組，中獎 <b>${won}</b> 組（理論上平均約 ${exp.toFixed(1)} 組）`+
     (drawn?`，花 ${spent.toLocaleString('en-US')} 元、中 ${gained.toLocaleString('en-US')} 元。`:'。');
 }
+// ---- 這期值不值得買：每注平均拿回多少（期望值） ----
+// 中獎機率固定，但獎金每期不同。小獎用最近幾期實際每注獎金平均；頭獎用「上期累積＋本期銷售撥入」估計，
+// 並用泊松分布估計同一期還有幾個人也中頭獎（要平分）。超過 5,000 元的獎金扣 20% 所得稅。
+// scripts/ai-predict.mjs 裡有同一套計算（每晚記錄，划算時通知），兩邊要一起改。
+const EV_TAX=0.2, D539_JP=8e6, D539_CAP=24e6;
+function evCalc(id,evd,popW){
+  const g=GAMES[id], t=TIERS[id]; if(g.digits||!Array.isArray(evd))return null;
+  const d0=evd.find(d=>d&&d.sell>0); if(!d0)return null;
+  const price=PRICE[id], tickets=d0.sell/price, net=x=>x>5000?x*(1-EV_TAX):x;
+  const tiers=t.list.map(x=>({name:x[0],p:x[2]/t.total}));
+  const avg=name=>{const v=evd.map(d=>Number(d&&d.prizes&&d.prizes[name])).filter(x=>x>0);return v.length?v.reduce((a,b)=>a+b)/v.length:0};
+  let evOther=0; for(const x of tiers.slice(1))evOther+=x.p*net(avg(x.name));
+  const pJP=tiers[0].p, lam=m=>tickets*pJP*m;
+  // 這組號碼的熱門倍數：1 = 一般組合；用熱門號碼推算的每個號碼權重相乘
+  const w=popW&&popW.length===g.z1.max?popW.map(x=>Math.log(1+x/100)).sort((a,b)=>a-b):null;
+  const mult={avg:1,least:w?Math.exp(w.slice(0,g.z1.n).reduce((a,b)=>a+b,0)):1,most:w?Math.exp(w.slice(-g.z1.n).reduce((a,b)=>a+b,0)):1};
+  let jp, pool=null, fresh=null, carry=0, breakeven=null, base;
+  if(id==='d539'){ // 頭獎每注 800 萬，全部頭獎合計最多 2,400 萬
+    jp=m=>{const l=lam(m);let s=0,pk=Math.exp(-l);for(let k=0;k<80;k++){s+=pk*Math.min(D539_JP,D539_CAP/(k+1));pk*=l/(k+1)}return net(s)};
+    base=evOther+pJP*jp(1);
+  }else{
+    const rs=evd.filter(d=>d&&d.sell>0&&d.add>0).map(d=>d.add/d.sell); if(!rs.length)return null;
+    const ratio=rs.reduce((a,b)=>a+b)/rs.length; fresh=ratio*d0.sell; carry=d0.winners>0?0:d0.carry; pool=carry+fresh;
+    const share=m=>{const l=lam(m);return l>0?(1-Math.exp(-l))/l:1}; // 期望拿到的比例 E[1/(1+其他中獎人數)]
+    jp=(m,P=pool)=>net(P*share(m));
+    base=evOther+pJP*jp(1,fresh);
+    breakeven=(price-evOther)/(pJP*(1-EV_TAX)*share(1));
+  }
+  const ev=evOther+pJP*jp(1);
+  return{id,price,tickets,pool,fresh,carry,ev,base,ret:ev/price,baseRet:base/price,breakeven,evOther,
+    jpAvg:jp(mult.avg),jpLeast:jp(mult.least),jpMost:jp(mult.most),lastWinners:d0.winners,pOther:1-Math.exp(-lam(1))};
+}
+function renderEV(){
+  const box=$('evBox'), g=GAMES[cur]; if(!box)return;
+  const r=latest[cur], pd=popData(cur), e=r&&evCalc(cur,r.evd,pd&&pd.w);
+  if(!e){box.hidden=true;return}
+  box.hidden=false;
+  const yuan=x=>Math.round(x).toLocaleString('en-US')+' 元', pc=x=>Math.round(x*100)+'%';
+  const verdict=e.ret>=1?['期望值超過票價（很少見）','good']:e.ret>=e.baseRet*1.25?['比平常划算','good']:e.ret>=e.baseRet*1.05?['比平常好一點','']:['普通（跟平常差不多）',''];
+  $('evMeta').textContent=g.name;
+  $('evHead').innerHTML=`每注 ${e.price} 元，平均拿回 <b>${e.ev.toFixed(1)} 元</b>（<b>${pc(e.ret)}</b>）<span class="ev-tag ${verdict[1]}">${verdict[0]}</span>`;
+  $('evBar').innerHTML=`<span class="fill" style="width:${Math.min(100,e.ret*100).toFixed(1)}%"></span><span class="base" style="left:${Math.min(100,e.baseRet*100).toFixed(1)}%" title="平常"></span>`;
+  const lines=[];
+  if(cur==='d539')lines.push(`頭獎每注 800 萬、合計最多 2,400 萬（太多人中會平分），不會累積，所以每期的期望值都差不多。`);
+  else{
+    lines.push(e.lastWinners>0?`上期頭獎有人中，這期頭獎重新累積，估計約 <b>${money(e.pool)}</b>（本期銷售撥入）。`
+      :`上期頭獎沒人中，這期頭獎估計約 <b>${money(e.pool)}</b>（累積 ${money(e.carry)}＋本期銷售撥入約 ${money(e.fresh)}）。`);
+    lines.push(`頭獎剛被開走時（平常）約拿回 ${e.base.toFixed(1)} 元（${pc(e.baseRet)}）。頭獎要累積到約 <b>${money(e.breakeven)}</b>，平均拿回的錢才會回到 ${e.price} 元。`);
+  }
+  if(pd){const diff=(e.jpLeast/e.jpMost-1)*100;
+    lines.push(`萬一中頭獎，平均實拿（扣稅、算進跟別人平分）：最少人選的組合約 <b>${money(e.jpLeast)}</b>、一般組合約 ${money(e.jpAvg)}、最多人選的組合約 ${money(e.jpMost)}，相差約 <b>${diff.toFixed(1)}%</b>。`+
+      `同一期還有別人也中頭獎的機率約 ${pct(e.pOther)}，${diff>=3?'所以挑比較少人選的號碼有一點幫助。':'所以挑哪組號碼幾乎沒差別。'}`)}
+  $('evBody').innerHTML=lines.map(x=>`<p>${x}</p>`).join('');
+  // 每晚排程記錄的期望值走勢（ai.json）
+  const log=aiData[cur]&&Array.isArray(aiData[cur].evLog)?aiData[cur].evLog.filter(x=>x&&Number.isFinite(Number(x.ret))).slice(-12):[];
+  $('evLog').innerHTML=log.length?`<span class="lbl">每晚排程記錄的期望值：</span>`+log.map(x=>`<span class="chip" title="${String(x.madeAt||'').slice(0,10)}">第 ${(Number(x.afterPeriod)%1e6)+1} 期 ${Math.round(Number(x.ret)*100)}%</span>`).join(''):'';
+}
 // ---- 匯出／匯入存的號碼 ----
 const NATIVE=window.LottoApp||null; // Android App 提供的功能（網頁版沒有）
 const toolMsg=t=>{$('toolMsg').textContent=t};
@@ -1402,7 +1485,11 @@ async function fetchGame(id){
   }).filter(Boolean).sort((a,b)=>Number(b.period)-Number(a.period)).filter((d,i,a)=>i===0||d.period!==a[i-1].period).slice(0,30);
   if(!draws.length)return null;
   const raw=rows.find(r=>String(r.period)===draws[0].period);
-  return{...draws[0],jackpot:jackpotOf(raw),recent:draws};
+  // 期望值用：每期銷售金額、撥進頭獎的金額、頭獎有沒有人中（由新到舊）
+  const evd=draws.map(d=>{const r=rows.find(x=>String(x.period)===d.period), jk=jackpotOf(r)||{};
+    const a=r&&(r.jackpotAssign||r.super638JackpotAssign||r.d539JackpotAssign);
+    return{sell:Number(r&&r.sellAmount)||0,add:Number(a&&a.prize)||0,winners:jk.winners||0,carry:jk.carry||0,prizes:d.prizes}});
+  return{...draws[0],jackpot:jackpotOf(raw),recent:draws,evd};
 }
 // 歷年資料（history.json）是打包時的版本，太舊時把中間缺的月份直接向台灣彩券補抓，預測實驗室與對獎就不會缺期
 async function fillHistoryGap(){
@@ -1442,12 +1529,12 @@ async function standalone(){
   picksCol=localPicks; document.body.classList.add('can-save');
   $('picksNote').textContent='按號碼旁的「存這組」就會存在這台裝置的瀏覽器裡（換裝置或清除瀏覽資料就不見）。每次打開頁面都會抓最新開獎，自動對照存號碼之後的第一期（晚上 8 點後存的，算下一期）。';
   reloadLocalPicks();
-  const pS=fetch('stats.json',{cache:'no-cache'}).then(r=>r.ok?r.json():null).then(j=>{if(j){stats=j;renderFreq();renderRecIntro()}}).catch(()=>{}); // 和網頁放在一起的歷年統計
+  const pS=fetch('stats.json',{cache:'no-cache'}).then(r=>r.ok?r.json():null).then(j=>{if(j){stats=j;renderFreq();renderRecIntro();renderEV()}}).catch(()=>{}); // 和網頁放在一起的歷年統計
   const pH=fetch('history.json',{cache:'no-cache'}).then(r=>r.ok?r.json():null).then(j=>{if(j&&typeof j==='object'){histData=j;renderLab();renderPicks();renderSaveButtons()}}).catch(()=>{}); // 每期號碼（預測實驗室、舊號碼對獎）
   Promise.all([pS,pH]).then(fillHistoryGap);
   // AI 事先存好的預測：每晚排程推到公開網頁的 ai.json；App 內建檔案沒有，直接讀網站上的
   const AI_URL=location.protocol==='file:'?'https://bkhotey4.github.io/taiwan-lottery-picker-web/ai.json':'ai.json';
-  fetch(AI_URL,{cache:'no-cache'}).then(r=>r.ok?r.json():null).then(j=>{if(j&&typeof j==='object'){for(const id of ['lotto','power','d539'])if(j[id]&&typeof j[id]==='object')aiData[id]=j[id];renderAI()}}).catch(()=>{});
+  fetch(AI_URL,{cache:'no-cache'}).then(r=>r.ok?r.json():null).then(j=>{if(j&&typeof j==='object'){for(const id of ['lotto','power','d539'])if(j[id]&&typeof j[id]==='object')aiData[id]=j[id];renderAI();renderEV()}}).catch(()=>{});
   const ids=Object.keys(TL_SRC), res=await Promise.allSettled(ids.map(fetchGame));
   res.forEach((r,i)=>{if(r.status==='fulfilled'&&r.value)latest[ids[i]]=r.value});
   latestFailed=!Object.keys(latest).length;
