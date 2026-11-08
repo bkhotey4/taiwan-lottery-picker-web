@@ -79,6 +79,11 @@ h2{font-size:15px;margin:0;letter-spacing:.04em}
 .check input{width:18px;height:18px;accent-color:var(--pick);margin:0}
 .check small{flex:1 1 100%;font-weight:400;font-size:12px;color:var(--muted)}
 .check.off{opacity:.55;cursor:default}
+.next{font-size:13px;color:var(--ink);background:var(--bg);border-radius:8px;padding:6px 10px;margin-top:-6px}
+.next b{font-family:var(--f-num);color:var(--accent)}
+.jackpot{font-size:13px;color:var(--ink)}
+.jackpot:empty{display:none}
+.jackpot b{color:var(--accent);font-family:var(--f-num)}
 .cmp-wrap{overflow-x:auto}
 .cmp{width:100%;border-collapse:collapse;font-size:13px}
 .cmp th,.cmp td{text-align:right;padding:7px 6px;border-bottom:1px solid var(--line);white-space:nowrap;font-variant-numeric:tabular-nums}
@@ -122,6 +127,7 @@ body.can-save .save{display:inline-block}
 
   <section class="slip" aria-live="polite">
     <div class="rule" id="rule"></div>
+    <div class="next" id="nextDraw"></div>
     <div class="sets" id="sets"></div>
     <div class="chance-box">
       <h2>這次選的號碼，中獎機率</h2>
@@ -130,6 +136,7 @@ body.can-save .save{display:inline-block}
     <div class="latest-box" id="latest" hidden>
       <div class="row"><h2>最新一期開獎</h2><span class="rule" id="latestMeta"></span></div>
       <div class="set" id="latestBalls"></div>
+      <div class="jackpot" id="latestJackpot"></div>
       <div class="match" id="latestMatch"></div>
     </div>
     <div class="controls">
@@ -352,6 +359,7 @@ function renderLatest(){
   if(!nums.length){box.hidden=true;return}
   box.hidden=false;
   $('latestMeta').textContent=`第 ${String(r.period).replace(/\D/g,'')} 期 · ${String(r.date).replace(/[^\d-]/g,'')}`;
+  $('latestJackpot').innerHTML=jackpotText(cur,r.jackpot); // 只會輸出數字與固定文字
   $('latestBalls').innerHTML=nums.map(v=>`<span class="ball sm">${g.digits?v:fmt(v,2)}</span>`).join('')+
     (sp!==null?`<span class="sep">＋</span><span class="ball sm z2">${fmt(sp,2)}</span>`:'');
   $('latestMatch').innerHTML='<div><span>拿上面這幾組對照：</span></div>'+last.map((s,i)=>{
@@ -359,6 +367,42 @@ function renderLatest(){
     return `<div><span class="idx">${String(i+1).padStart(2,'0')}</span><b>${hitTxt}</b><span class="${prize?'win':''}">${prize?'→ '+prize:'→ 沒中獎'}</span></div>`;
   }).join('');
 }
+// ---- 頭獎金額 ----
+function money(n){return n>=1e8?(n/1e8).toFixed(2)+' 億':n>=1e4?Math.round(n/1e4).toLocaleString('en-US')+' 萬':Math.round(n).toLocaleString('en-US')+' 元'}
+function jackpotOf(raw){ // API 原始資料 → {winners, perPrize, carry}
+  const jk=raw&&(raw.jackpotAssign||raw.super638JackpotAssign||raw.d539JackpotAssign); if(!jk)return null;
+  const winners=Number(jk.winnerCount)||0;
+  return{winners,perPrize:Number(jk.perPrize)||0,carry:jk.prize!=null&&winners===0?Number(jk.prize)+Number(jk.lastPrize||0):0};
+}
+function jackpotText(id,jk){
+  if(!jk||typeof jk!=='object')return '';
+  const w=Math.max(0,Math.floor(Number(jk.winners)||0)), pp=Math.max(0,Number(jk.perPrize)||0), c=Math.max(0,Number(jk.carry)||0);
+  if(id==='lotto'||id==='power'){
+    if(w>0)return `上期頭獎 ${w} 注中，每注 <b>${money(pp)}</b>；本期頭獎重新累積`;
+    return c>0?`上期頭獎沒人中，本期頭獎累積<b>至少 ${money(c)}</b>（再加上本期銷售）`:'上期頭獎沒人中';
+  }
+  if(id==='d539')return (w>0?`上期頭獎 ${w} 注中，每注 <b>${money(pp)}</b>`:'上期頭獎沒人中')+'；頭獎每注 800 萬，太多人中時會平分';
+  return '';
+}
+// ---- 下期開獎時間：20:00 停售、20:30 開獎（台北時間） ----
+const DRAW_DAYS={lotto:[2,5],power:[1,4],d539:[1,2,3,4,5,6],s3:[1,2,3,4,5,6],s4:[1,2,3,4,5,6]};
+const WD='日一二三四五六';
+function renderNextDraw(){
+  const now=Date.now(), t=new Date(now+8*3600e3), mins=t.getUTCHours()*60+t.getUTCMinutes();
+  for(let d=0;d<8;d++){
+    const day=new Date(t.getTime()+d*864e5);
+    if(!DRAW_DAYS[cur].includes(day.getUTCDay())||(d===0&&mins>=20*60+30))continue;
+    const ymd=Date.UTC(day.getUTCFullYear(),day.getUTCMonth(),day.getUTCDate());
+    const stop=ymd+20*3600e3-8*3600e3; // 當天 20:00 台北時間的 UTC 毫秒
+    const left=Math.floor((stop-now)/60000);
+    const when=`${day.getUTCMonth()+1}/${day.getUTCDate()}（${WD[day.getUTCDay()]}）20:30 開獎`;
+    let cd; if(left<=0)cd='已停售，等開獎';
+    else{const dd=Math.floor(left/1440),hh=Math.floor(left%1440/60),mm=left%60;cd='停售前還有 <b>'+(dd?`${dd} 天 ${hh} 小時`:hh?`${hh} 小時 ${mm} 分`:`${mm} 分`)+'</b>'}
+    $('nextDraw').innerHTML=`下期 ${when} · ${cd}`;
+    return;
+  }
+}
+setInterval(renderNextDraw,30000);
 // 一組號碼對一期開獎：回傳對中說明與獎項（沒中為 null）
 function matchSet(id,s,draw){
   const g=GAMES[id], nums=draw.numbers, sp=draw.special;
@@ -461,7 +505,9 @@ async function fetchGame(id){
     else{const s=(r.drawNumberSize||[]).map(Number);d.numbers=hasSp?s.slice(0,-1):s;d.special=hasSp?s[s.length-1]:null}
     return cleanDraw(d);
   }).filter(Boolean).sort((a,b)=>Number(b.period)-Number(a.period)).filter((d,i,a)=>i===0||d.period!==a[i-1].period).slice(0,30);
-  return draws.length?{...draws[0],recent:draws}:null;
+  if(!draws.length)return null;
+  const raw=rows.find(r=>String(r.period)===draws[0].period);
+  return{...draws[0],jackpot:jackpotOf(raw),recent:draws};
 }
 function rawLocalPicks(){const a=store('lucky.picks');return Array.isArray(a)?a:[]}
 function reloadLocalPicks(){
@@ -513,7 +559,7 @@ function renderAvoid(){
   $('avoid').checked=avoid&&!off; $('avoid').disabled=off; $('avoidWrap').classList.toggle('off',off);
   $('avoidHint').textContent=off?`${g.name}正彩獎金固定，不會跟別人平分，不需要避開`:'少選生日、連號、規則排列、照抄上一期，萬一中頭獎比較不會跟別人平分（中獎機率不變）';
 }
-function renderRule(){const g=GAMES[cur];$('rule').innerHTML=`<span><b>${g.name}</b></span><span>${g.rule}</span>`;renderAvoid();
+function renderRule(){const g=GAMES[cur];$('rule').innerHTML=`<span><b>${g.name}</b></span><span>${g.rule}</span>`;renderAvoid();renderNextDraw();
   $('must').placeholder=g.digits?'例如 7（從第一位開始指定）':'例如 7 18';
   $('odds').innerHTML=g.odds.map(([l,v])=>`<div><small>${l}機率</small><strong>1 / ${v.toLocaleString('en-US')}</strong></div>`).join('')+
     `<div><small>每期買 1 注、連買 1 年（約 104 期）中頭獎的機率</small><strong>約 1 / ${Math.round(g.odds[0][1]/104).toLocaleString('en-US')}</strong></div>`}
