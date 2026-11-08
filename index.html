@@ -156,6 +156,16 @@ body.can-save .save{display:inline-block}
 .pick .status{flex:1 1 100%;color:var(--muted)}
 .pick .status.win{color:var(--accent);font-weight:700}
 .pick .del{margin-left:auto;padding:3px 8px;font-size:12px}
+.money{margin:0;font-size:13px}
+.money:empty{display:none}
+.money b{font-family:var(--f-num)}
+.money .up{color:var(--pick)}
+.money .down{color:var(--accent)}
+.manual{background:var(--bg);border-radius:10px;padding:10px 12px}
+.manual .controls{gap:8px}
+.manual .msg{margin-top:6px}
+.manual .msg:empty{display:none}
+.manual .field input,.manual .field select{background:var(--paper)}
 .odds div.hl{border-color:var(--accent)}
 .odds em{display:block;font-style:normal;font-size:12px;color:var(--muted);font-family:var(--f-num)}
 .tiers summary{cursor:pointer;font-size:13px;font-weight:700}
@@ -243,6 +253,22 @@ body.can-save .save{display:inline-block}
 <div class="col col-side">
   <section class="slip" id="picksBox" hidden>
     <div class="row"><h2>我存的號碼</h2><span class="rule" id="picksSum"></span></div>
+    <p class="money" id="picksMoney"></p>
+    <div class="manual">
+      <div class="controls">
+        <label class="field">彩種
+          <select id="mGame"></select>
+        </label>
+        <label class="field grow">自己買的號碼
+          <input id="mNums" inputmode="numeric" placeholder="例如 3 10 19 27 33 38">
+        </label>
+        <label class="field" id="mZ2Wrap" hidden>第二區
+          <input id="mZ2" inputmode="numeric" placeholder="例如 5" size="4">
+        </label>
+        <button type="button" class="ghost" id="mSave">存起來對獎</button>
+      </div>
+      <p class="msg" id="mMsg"></p>
+    </div>
     <div class="picks" id="picks"></div>
     <p class="note" id="picksNote">按號碼旁的「存這組」就會存在你的帳號裡，手機、電腦都看得到。開獎資料更新後，會自動對照存號碼之後的第一期（晚上 8 點後存的，算下一期）。</p>
   </section>
@@ -578,9 +604,10 @@ function renderBudget(){
     const any=t.list.length===1?n/t.total:1-Math.pow(1-p,n); // 只有一種獎項時不同號碼互斥，直接相加
     return{id,n,any,jp:n*t.list[0][2]/t.total};
   });
-  const bestAny=Math.max(...rows.map(r=>r.any)), bestJp=Math.max(...rows.map(r=>r.jp));
-  $('cmpRows').innerHTML=rows.map(r=>`<tr class="${r.id===cur?'cur':''}"><td>${GAMES[r.id].name}</td><td>${PRICE[r.id]}</td><td>${r.n} 注</td>`+
-    (r.n?`<td class="${r.any===bestAny?'best':''}">${(TIERS[r.id].list.length>1&&r.n>1?'約 ':'')+pct(r.any)}</td><td class="${r.jp===bestJp?'best':''}">${oneIn(r.jp)}</td>`:'<td>—</td><td>—</td>')+'</tr>').join('');
+  // 3星／4星的「頭獎」其實是固定 5,000／50,000 元的正彩，不跟大樂透等的頭獎比
+  const bestAny=Math.max(...rows.map(r=>r.any)), bestJp=Math.max(...rows.filter(r=>!GAMES[r.id].digits).map(r=>r.jp));
+  $('cmpRows').innerHTML=rows.map(r=>{const dg=!!GAMES[r.id].digits;return`<tr class="${r.id===cur?'cur':''}"><td>${GAMES[r.id].name}</td><td>${PRICE[r.id]}</td><td>${r.n} 注</td>`+
+    (r.n?`<td class="${r.any===bestAny?'best':''}">${(TIERS[r.id].list.length>1&&r.n>1?'約 ':'')+pct(r.any)}</td><td class="${!dg&&r.jp===bestJp?'best':''}">${oneIn(r.jp)}${dg?'<br><span class="rule">正彩</span>':''}</td>`:'<td>—</td><td>—</td>')+'</tr>'}).join('');
 }
 function oneIn(p){const x=1/p;return '1 / '+(x<100?x.toFixed(1):Math.round(x).toLocaleString('en-US'))}
 function pct(p){return (p>=0.01?(p*100).toFixed(1):(p*100).toPrecision(2))+'%'}
@@ -613,7 +640,9 @@ const saved=store('lucky.game'); if(saved&&GAMES[saved])cur=saved;
 let hist=store('lucky.hist')||[];
 
 function renderTabs(){$('tabs').innerHTML=Object.entries(GAMES).map(([k,g])=>`<button type="button" data-k="${k}" aria-pressed="${k===cur}">${g.name}</button>`).join('');
-  $('tabs').querySelectorAll('button').forEach(b=>b.onclick=()=>{cur=b.dataset.k;store('lucky.game',cur);$('must').value='';$('wheelNums').value='';$('wheelZ2').value='';renderAll(true)})}
+  $('tabs').querySelectorAll('button').forEach(b=>b.onclick=()=>{cur=b.dataset.k;store('lucky.game',cur);$('must').value='';$('wheelNums').value='';$('wheelZ2').value='';
+    if($('mGame').options.length){$('mGame').value=cur;syncManual();$('mMsg').textContent=''}
+    renderAll(true,false)})} // 換彩種會重新開號碼，但不記進「最近選過的號碼」
 function fmt(v,pad){return String(v).padStart(pad,'0')}
 function parseMust(g){
   const raw=$('must').value.trim(); if(!raw)return {ok:true,list:[]};
@@ -680,11 +709,11 @@ function setHTML(g,s,i,anim){
   return `<div class="set"><span class="idx">${String(i+1).padStart(2,'0')}</span>${b1}${b2}<button type="button" class="ghost save" data-i="${i}">存這組</button></div>`;
 }
 function asText(g,s){const a=g.digits?s.z1.join(''):s.z1.map(v=>fmt(v,2)).join(' ');return s.z2.length?`${a} ＋ ${s.z2.map(v=>fmt(v,2)).join(' ')}`:a}
-function run(anim){
+function run(anim,log=anim){
   const g=GAMES[cur]; const m=parseMust(g); $('msg').textContent=m.ok?'':m.err; if(!m.ok)return;
   const n=+$('count').value; last=drawSets(g,m.list,n);
   $('sets').innerHTML=last.map((s,i)=>setHTML(g,s,i,anim)).join('');
-  if(anim){hist.unshift({t:Date.now(),g:g.name,sets:last.map(s=>asText(g,s))}); hist=hist.slice(0,8); store('lucky.hist',hist); renderHist()}
+  if(log){hist.unshift({t:Date.now(),g:g.name,sets:last.map(s=>asText(g,s))}); hist=hist.slice(0,8); store('lucky.hist',hist); renderHist()}
   $('copied').textContent='';
   renderChance();
   renderLatest();
@@ -764,13 +793,24 @@ function matchSet(id,s,draw){
   const spHit=sp!==null&&(id==='power'?s.z2[0]===sp:s.z1.includes(sp));
   return{hitTxt:`對中 ${hits.length} 個${hits.length?'（'+hits.map(v=>fmt(v,2)).join(' ')+'）':''}${spHit?'＋'+(id==='power'?'第二區':'特別號'):''}`,prize:prizeName(id,hits.length,spHit)};
 }
+// 各獎項在 API 裡的欄位（perPrize = 那一期每注實際獎金）
+const PRIZE_KEYS={
+  lotto:{'頭獎':'jackpotAssign','貳獎':'secondAssign','參獎':'thirdAssign','肆獎':'fourthAssign','伍獎':'fifthAssign','陸獎':'sixthAssign','柒獎':'seventhAssign','普獎':'normalAssign'},
+  power:{'頭獎':'super638JackpotAssign','貳獎':'super638SecondAssign','參獎':'super638ThirdAssign','肆獎':'super638FourthAssign','伍獎':'super638FifthAssign','陸獎':'super638SixthAssign','柒獎':'super638SeventhAssign','捌獎':'super638EighthAssign','玖獎':'super638NinthAssign','普獎':'super638NormalAssign'},
+  d539:{'頭獎':'d539JackpotAssign','貳獎':'d539SecondAssign','參獎':'d539ThirdAssign','肆獎':'d539FourthAssign'},
+  s3:{'正彩':'lotto3DFirstAssign'}, s4:{'正彩':'lotto4DFirstAssign'}
+};
+const PRIZE_NAMES=new Set(Object.values(PRIZE_KEYS).flatMap(o=>Object.keys(o)));
+function prizesOf(id,raw){const o={};for(const[k,key]of Object.entries(PRIZE_KEYS[id]||{})){const v=Number(raw&&raw[key]&&raw[key].perPrize);if(Number.isFinite(v)&&v>=0)o[k]=v}return o}
 // 資料庫裡的一期開獎 → 只留合法數字
 function cleanDraw(d){
   if(!d||typeof d!=='object')return null;
   const numbers=(Array.isArray(d.numbers)?d.numbers:[]).map(Number).filter(Number.isInteger);
   const special=d.special===null||d.special===undefined||!Number.isInteger(Number(d.special))?null:Number(d.special);
   const period=String(d.period??'').replace(/\D/g,''), date=String(d.date??'').replace(/[^\d-]/g,'').slice(0,10);
-  return numbers.length&&period?{period,date,numbers,special}:null;
+  let prizes=null;
+  if(d.prizes&&typeof d.prizes==='object'){prizes={};for(const[k,v]of Object.entries(d.prizes))if(PRIZE_NAMES.has(k)&&Number.isFinite(Number(v))&&Number(v)>=0)prizes[k]=Number(v)}
+  return numbers.length&&period?{period,date,numbers,special,prizes}:null;
 }
 
 // ---- 我存的號碼：存在 data/users/<自己>/profile/picks，只有自己看得到 ----
@@ -784,46 +824,110 @@ function cleanPick(p){
   const z2=(Array.isArray(p.z2)?p.z2:[]).map(Number).filter(Number.isInteger);
   const t=Date.parse(p.createdAt); if(!z1.length||!Number.isFinite(t))return null;
   const after=p.afterPeriod==null?null:String(p.afterPeriod).replace(/\D/g,'')||null;
-  return{id:p.id,game:p.game,z1,z2,createdAt:new Date(t).toISOString(),afterPeriod:after};
+  return{id:p.id,game:p.game,z1,z2,createdAt:new Date(t).toISOString(),afterPeriod:after,manual:!!p.manual};
 }
-// 找出這組號碼該對的那一期：存的時候已知最新一期之後、且在存號碼當天停售前或之後的第一期
+// 這個彩種所有已知的開獎（舊→新）：歷年資料（只有期別與號碼）＋最近幾期（有日期與獎金）
+const pdCache={};
+function pickDraws(game){
+  const r=latest[game], h=histData[game];
+  const key=(r?r.period+':'+(r.recent?r.recent.length:0):'-')+'|'+(h&&h.rows?h.rows.length:0);
+  if(pdCache[game]&&pdCache[game].key===key)return pdCache[game];
+  const map=new Map(), ld=GAMES[game].digits?null:labDraws(game);
+  if(ld)ld.forEach(d=>map.set(d.period,{period:d.period,date:'',numbers:d.nums,special:d.sp,prizes:null}));
+  if(r)(Array.isArray(r.recent)&&r.recent.length?r.recent:[r]).map(cleanDraw).filter(Boolean).forEach(d=>map.set(d.period,d));
+  return pdCache[game]={key,full:!!ld,list:[...map.values()].sort((a,b)=>Number(a.period)-Number(b.period))};
+}
+// 找出這組號碼該對的那一期：存的時候已知最新一期之後、且不早於存號碼當天停售時間的第一期
 function drawForPick(p){
-  const r=latest[p.game]; if(!r)return{state:'nodata'};
-  const list=(Array.isArray(r.recent)&&r.recent.length?r.recent:[r]).map(cleanDraw).filter(Boolean)
-    .sort((a,b)=>Number(a.period)-Number(b.period));
+  const {list,full}=pickDraws(p.game); if(!list.length)return{state:'nodata'};
   const sv=taipei(p.createdAt);
-  const ok=d=>(p.afterPeriod==null||Number(d.period)>Number(p.afterPeriod))&&(d.date>sv.date||(d.date===sv.date&&sv.hour<CUTOFF_HOUR));
+  const ok=d=>{
+    if(p.afterPeriod!=null&&Number(d.period)<=Number(p.afterPeriod))return false;
+    if(!d.date)return p.afterPeriod!=null; // 只有期別的舊資料，要靠存的時候記下的期別判斷
+    return d.date>sv.date||(d.date===sv.date&&sv.hour<CUTOFF_HOUR);
+  };
   const d=list.find(ok);
   if(!d)return{state:'pending'};
-  if(d===list[0]&&list.length>=30&&p.afterPeriod!==null&&Number(d.period)-Number(p.afterPeriod)>1)return{state:'expired'};
+  // 只有最近幾期的資料時（3星／4星），如果找到的是資料裡最早那期、中間又可能缺期，就不能確定是哪一期
+  if(!full&&d===list[0]&&(p.afterPeriod==null||Number(d.period)-Number(p.afterPeriod)>1))return{state:'expired'};
   return{state:'drawn',draw:d};
 }
+// 還沒開獎的號碼（同一組號碼開過獎之後，可以再存一次給下一期）
+function pendingKeys(){return new Set(picks.filter(p=>{const s=drawForPick(p).state;return s==='pending'||s==='nodata'}).map(p=>pickKey(p.game,p.z1,p.z2)))}
 function renderPicks(){
   const box=$('picksBox'); box.hidden=!picksCol;
   if(!picksCol)return;
   if(!picksReady){$('picksSum').textContent='';$('picks').innerHTML='<div class="pick"><span class="status">讀取中…</span></div>';return}
-  let drawn=0, won=0;
+  let drawn=0, won=0, spent=0, gained=0, unknown=0;
   const rows=picks.map(p=>{
     const g=GAMES[p.game], st=drawForPick(p), s={z1:p.z1,z2:p.z2};
     let status, win=false;
-    if(st.state==='drawn'){const m=matchSet(p.game,s,st.draw);drawn++;if(m.prize){won++;win=true}
-      status=`第 ${st.draw.period} 期（${st.draw.date.slice(5).replace('-','/')}）：${m.hitTxt} → ${m.prize||'沒中獎'}`}
+    if(st.state==='drawn'){
+      const m=matchSet(p.game,s,st.draw); drawn++; spent+=PRICE[p.game];
+      let money='';
+      if(m.prize){won++;win=true;const amt=st.draw.prizes&&st.draw.prizes[m.prize];
+        if(Number.isFinite(amt)){gained+=amt;money=` ${amt.toLocaleString('en-US')} 元`}else{unknown++;money='（金額查不到）'}}
+      const when=st.draw.date?`（${st.draw.date.slice(5).replace('-','/')}）`:'';
+      status=`第 ${st.draw.period} 期${when}：${m.hitTxt} → ${m.prize?m.prize+money:'沒中獎'}`;
+    }
     else status=st.state==='pending'?'等開獎':st.state==='expired'?'已超過可對獎的期數':'還沒有開獎資料';
     const nums=g.digits?p.z1.join(''):p.z1.map(v=>fmt(v,2)).join(' ')+(p.z2.length?' ＋ '+p.z2.map(v=>fmt(v,2)).join(' '):'');
     const sv=taipei(p.createdAt);
-    return `<div class="pick"><span class="gname">${g.name}</span><span class="nums">${nums}</span><span class="rule">${sv.date.slice(5).replace('-','/')} 存</span>`+
+    return `<div class="pick"><span class="gname">${g.name}</span><span class="nums">${nums}</span><span class="rule">${sv.date.slice(5).replace('-','/')} 存${p.manual?' · 自選':''}</span>`+
       `<button type="button" class="ghost del" data-id="${p.id}">刪除</button><span class="status${win?' win':''}">${status}</span></div>`;
   });
+  const net=gained-spent;
   $('picksSum').textContent=picks.length?`共 ${picks.length} 組 · 已開獎 ${drawn} 組 · 中獎 ${won} 組`:'';
-  $('picks').innerHTML=rows.length?rows.join(''):'<div class="pick"><span class="status">還沒有存號碼。開獎後按號碼旁的「存這組」。</span></div>';
+  $('picksMoney').innerHTML=drawn?`已開獎的 ${drawn} 組：花 <b>${spent.toLocaleString('en-US')}</b> 元，中 <b>${gained.toLocaleString('en-US')}</b> 元，`+
+    `<b class="${net>=0?'up':'down'}">${net>=0?'賺':'虧'} ${Math.abs(net).toLocaleString('en-US')} 元</b>`+
+    (unknown?`（另有 ${unknown} 組中獎但查不到金額，沒算進去）`:'')+'。以每組 1 注、官方每期實際獎金計算，不含稅。':'';
+  $('picks').innerHTML=rows.length?rows.join(''):'<div class="pick"><span class="status">還沒有存號碼。按號碼旁的「存這組」，或在上面輸入自己買的號碼。</span></div>';
 }
 function renderSaveButtons(){
-  const saved=new Set(picks.map(p=>pickKey(p.game,p.z1,p.z2)));
+  const saved=pendingKeys();
   document.querySelectorAll('#sets .save').forEach(b=>{const s=last[+b.dataset.i];if(!s)return;
     const done=saved.has(pickKey(cur,s.z1,s.z2));b.disabled=done;b.textContent=done?'已存':'存這組'});
   const L=labCache[cur];
   document.querySelectorAll('#labPreds .save').forEach(b=>{const p=L&&L.next[+b.dataset.pred];if(!p)return;
     const done=saved.has(pickKey(cur,p.z1,p.z2?[p.z2]:[]));b.disabled=done;b.textContent=done?'已存':'存這組'});
+}
+// ---- 手動輸入自己買的號碼 ----
+function syncManual(){
+  const id=$('mGame').value||cur, g=GAMES[id];
+  $('mZ2Wrap').hidden=!g.z2;
+  $('mNums').placeholder=g.digits?`例如 ${'1234'.slice(0,g.digits)}（${g.digits} 位數，照順序）`:`${g.z1.n} 個號碼，例如 ${[3,10,19,27,33,38].slice(0,g.z1.n).map(v=>fmt(v,2)).join(' ')}`;
+}
+function bindManual(){
+  $('mGame').innerHTML=Object.entries(GAMES).map(([k,g])=>`<option value="${k}">${g.name}</option>`).join('');
+  $('mGame').value=cur; syncManual();
+  $('mGame').onchange=()=>{syncManual();$('mMsg').textContent=''};
+  const save=async()=>{
+    const id=$('mGame').value, g=GAMES[id], msg=t=>{$('mMsg').textContent=t};
+    if(!picksCol)return msg('目前沒辦法存號碼');
+    let z1, z2=[];
+    if(g.digits){
+      const d=$('mNums').value.replace(/\D/g,'');
+      if(d.length!==g.digits)return msg(`${g.name}要輸入 ${g.digits} 位數字（目前 ${d.length} 位）`);
+      z1=d.split('').map(Number);
+    }else{
+      const a=parseNums($('mNums').value,g.z1.max);
+      if(a.bad)return msg(`號碼要在 01–${fmt(g.z1.max,2)} 之間`);
+      if(a.list.length!==g.z1.n)return msg(`${g.name}要剛好 ${g.z1.n} 個不同的號碼（目前 ${a.list.length} 個）`);
+      z1=a.list.sort((x,y)=>x-y);
+      if(g.z2){const b=parseNums($('mZ2').value,g.z2.max);if(b.bad||b.list.length!==1)return msg('第二區要輸入 1 個號碼（01–08）');z2=b.list}
+    }
+    if(pendingKeys().has(pickKey(id,z1,z2)))return msg('這組號碼已經存了，還沒開獎');
+    if(picks.length>=MAX_PICKS)return msg(`最多存 ${MAX_PICKS} 組，先刪掉一些舊的`);
+    $('mSave').disabled=true;
+    const r=latest[id];
+    try{
+      await picksCol.doc().set({game:id,z1,z2,createdAt:new Date().toISOString(),afterPeriod:r&&r.period!=null?String(r.period):null,manual:true});
+      $('mNums').value='';$('mZ2').value='';msg('已存起來，開獎後會自動對獎');
+    }catch(err){msg(err&&err.message==='storage'?'這個瀏覽器不讓網頁存資料（可能是無痕模式），沒辦法存號碼':'存不起來，稍後再試一次')}
+    $('mSave').disabled=false;
+  };
+  $('mSave').onclick=save;
+  [$('mNums'),$('mZ2')].forEach(el=>el.addEventListener('keydown',e=>{if(e.key==='Enter')save()}));
 }
 function bindLab(){ // 預測實驗室的「存這組」
   $('labPreds').addEventListener('click',async e=>{
@@ -870,6 +974,7 @@ async function fetchGame(id){
     const d={period:String(r.period),date:String(r.lotteryDate).slice(0,10)};
     if(hasSp===null){d.numbers=(r.drawNumberAppear||[]).map(Number);d.special=null}
     else{const s=(r.drawNumberSize||[]).map(Number);d.numbers=hasSp?s.slice(0,-1):s;d.special=hasSp?s[s.length-1]:null}
+    d.prizes=prizesOf(id,r);
     return cleanDraw(d);
   }).filter(Boolean).sort((a,b)=>Number(b.period)-Number(a.period)).filter((d,i,a)=>i===0||d.period!==a[i-1].period).slice(0,30);
   if(!draws.length)return null;
@@ -892,7 +997,7 @@ async function standalone(){
   $('picksNote').textContent='按號碼旁的「存這組」就會存在這台裝置的瀏覽器裡（換裝置或清除瀏覽資料就不見）。每次打開頁面都會抓最新開獎，自動對照存號碼之後的第一期（晚上 8 點後存的，算下一期）。';
   reloadLocalPicks();
   fetch('stats.json',{cache:'no-cache'}).then(r=>r.ok?r.json():null).then(j=>{if(j){stats=j;renderFreq()}}).catch(()=>{}); // 和網頁放在一起的歷年統計
-  fetch('history.json',{cache:'no-cache'}).then(r=>r.ok?r.json():null).then(j=>{if(j&&typeof j==='object'){histData=j;renderLab()}}).catch(()=>{}); // 每期號碼（預測實驗室）
+  fetch('history.json',{cache:'no-cache'}).then(r=>r.ok?r.json():null).then(j=>{if(j&&typeof j==='object'){histData=j;renderLab();renderPicks();renderSaveButtons()}}).catch(()=>{}); // 每期號碼（預測實驗室、舊號碼對獎）
   const ids=Object.keys(TL_SRC), res=await Promise.allSettled(ids.map(fetchGame));
   res.forEach((r,i)=>{if(r.status==='fulfilled'&&r.value)latest[ids[i]]=r.value});
   latestFailed=!Object.keys(latest).length;
@@ -910,7 +1015,7 @@ async function standalone(){
     latest=next; latestFailed=false; renderLatest(); renderPicks(); renderLab();
   },()=>{clearTimeout(timer);latestFailed=!Object.keys(latest).length;renderLatest()});
   db.doc('stats/all').onSnapshot(d=>{if(d.exists){stats=d.data();renderFreq()}},()=>{});
-  ['lotto','power','d539'].forEach(id=>db.doc('history/'+id).onSnapshot(d=>{if(d.exists){histData[id]=d.data();if(id===cur)renderLab()}},()=>{}));
+  ['lotto','power','d539'].forEach(id=>db.doc('history/'+id).onSnapshot(d=>{if(d.exists){histData[id]=d.data();if(id===cur)renderLab();renderPicks();renderSaveButtons()}},()=>{}));
   // 存號碼要知道是誰（沒登入就不提供）
   let uid=null; try{const user=await window.claude.use('user'); uid=user?await user.id():null}catch(e){}
   if(!uid)return;
@@ -933,16 +1038,17 @@ function renderAvoid(){
 function renderRule(){const g=GAMES[cur];$('rule').innerHTML=`<span><b>${g.name}</b></span><span>${g.rule}</span>`;renderAvoid();renderNextDraw();renderWheel();renderFreq();renderLab();
   $('must').placeholder=g.digits?'例如 7（從第一位開始指定）':'例如 7 18';
   $('odds').innerHTML=g.odds.map(([l,v])=>`<div><small>${l}機率</small><strong>1 / ${v.toLocaleString('en-US')}</strong></div>`).join('')+
-    `<div><small>每期買 1 注、連買 1 年（約 104 期）中頭獎的機率</small><strong>約 1 / ${Math.round(g.odds[0][1]/104).toLocaleString('en-US')}</strong></div>`}
+    `<div><small>每期買 1 注、連買 1 年（約 ${DRAW_DAYS[cur].length*52} 期）中${g.digits?'正彩':'頭獎'}的機率</small><strong>約 1 / ${Math.round(g.odds[0][1]/(DRAW_DAYS[cur].length*52)).toLocaleString('en-US')}</strong></div>`}
 function renderHist(){
   if(!hist.length){$('hist').innerHTML='<div>按「開獎」後，最近 8 次會留在這台裝置上。</div>';return}
   $('hist').innerHTML=hist.map(h=>{const d=new Date(h.t);const ts=`${d.getMonth()+1}/${d.getDate()} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
     return `<div><span>${ts}</span><span>${h.g}</span><b>${h.sets.join('　｜　')}</b></div>`}).join('');
 }
-function renderAll(anim){renderTabs();renderRule();run(anim)}
+function renderAll(anim,log=anim){renderTabs();renderRule();run(anim,log)}
 $('go').onclick=()=>run(true);
 bindWheel();
 bindLab();
+bindManual();
 // ---- 可安裝的 App（只在獨立網頁上；Claude 頁面不需要） ----
 if(!window.claude&&location.protocol==='https:'){
   const head=document.head||document.documentElement;
