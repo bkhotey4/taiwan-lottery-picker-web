@@ -31,6 +31,7 @@ header p{margin:4px 0 0;color:var(--muted)}
 .tabs{display:flex;flex-wrap:wrap;gap:8px}
 .tabs button{font:inherit;font-weight:700;border:1.5px solid var(--line);background:var(--paper);color:var(--ink);padding:8px 14px;border-radius:999px;cursor:pointer}
 .tabs button[aria-pressed="true"]{background:var(--ink);color:var(--paper);border-color:var(--ink)}
+@media (max-width:600px){.tabs{flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none;gap:6px}.tabs::-webkit-scrollbar{display:none}.tabs button{flex:none;padding:8px 12px}}
 button:focus-visible,input:focus-visible,select:focus-visible{outline:3px solid var(--pick);outline-offset:2px}
 .slip{background:var(--paper);border:1.5px solid var(--line);border-radius:14px;padding:18px;display:flex;flex-direction:column;gap:14px}
 .rule{font-size:13px;color:var(--muted);display:flex;flex-wrap:wrap;gap:6px 16px}
@@ -62,6 +63,8 @@ button:focus-visible,input:focus-visible,select:focus-visible{outline:3px solid 
 .fold-btn{flex:none;padding:6px 14px;font-size:13px}
 .fold-hint{margin:6px 0 0;font-size:13px;color:var(--muted);cursor:pointer}
 .tagline{margin:4px 0 0;font-size:14px}
+#nextDraw .upd{color:var(--muted);font-size:12px}
+#nextDraw .warn{color:var(--accent);font-size:12px}
 #labBox.digits .ml-only{display:none}
 .today-list{display:grid;gap:10px;margin-top:8px}
 .win-rate:empty{display:none}
@@ -573,7 +576,7 @@ body.can-save .save{display:inline-block}
       <thead><tr><th>彩種</th><th>每注</th><th>可買</th><th>至少中一個獎</th><th>中頭獎</th></tr></thead>
       <tbody id="cmpRows"></tbody>
     </table></div>
-    <p class="note">每注號碼都不一樣時的機率。中獎機會越高的彩種，獎金通常越小；彩券平均拿回來的錢比花出去的少，買越多平均虧越多，先訂好預算再玩。3星／4星的「頭獎」是固定 5,000／50,000 元的壹獎。</p>
+    <p class="note">每注號碼都不一樣時的機率。中獎機會越高的彩種，獎金通常越小；彩券平均拿回來的錢比花出去的少，買越多平均虧越多，先訂好預算再玩。3星／4星的「頭獎」是獎金固定的壹獎。</p>
   </section>
 
   <section class="slip" id="simBox" data-tab="ana" aria-label="長期模擬">
@@ -635,8 +638,8 @@ const TIERS={
     .map(([n,d,k,h])=>[n,d,comb(6,k)*comb(32,6-k)*(h?1:7)])},
   d539:{total:comb(39,5),list:[['頭獎','5 個全中',5],['貳獎','4 個',4],['參獎','3 個',3],['肆獎','2 個',2]]
     .map(([n,d,k])=>[n,d,comb(5,k)*comb(34,5-k)])},
-  s3:{total:1000,list:[['壹獎','3 位依序全中',1],['貳獎','後 2 位對中（佰位不中）',9],['參獎','只中個位（佰、拾位都不中）',81]],extra:'獎金固定：壹獎 5,000、貳獎 500、參獎 50 元（以台彩公告為準）。'},
-  s4:{total:10000,list:[['壹獎','4 位依序全中',1],['貳獎','後 3 位對中（千位不中）',9],['參獎','後 2 位對中（千、佰位都不中）',81]],extra:'獎金固定：壹獎 50,000、貳獎 5,000、參獎 500 元（以台彩公告為準）。'}
+  s3:{total:1000,list:[['壹獎','3 位依序全中',1],['貳獎','後 2 位對中（佰位不中）',9],['參獎','只中個位（佰、拾位都不中）',81]],extra:''},
+  s4:{total:10000,list:[['壹獎','4 位依序全中',1],['貳獎','後 3 位對中（千位不中）',9],['參獎','後 2 位對中（千、佰位都不中）',81]],extra:''}
 };
 // ---- 包牌試算 ----
 const WHEEL_MAX=16; // 最多選幾個號碼（大樂透 16 個 = 8,008 注）
@@ -1105,7 +1108,7 @@ function renderBudget(){
     const any=t.list.length===1?n/t.total:1-Math.pow(1-p,n); // 只有一種獎項時不同號碼互斥，直接相加
     return{id,n,any,jp:n*t.list[0][2]/t.total};
   });
-  // 3星／4星的「頭獎」其實是固定 5,000／50,000 元的壹獎，不跟大樂透等的頭獎比
+  // 3星／4星的「頭獎」其實是獎金固定的壹獎，不跟大樂透等的頭獎比
   const bestAny=Math.max(...rows.map(r=>r.any)), bestJp=Math.max(...rows.filter(r=>!GAMES[r.id].digits).map(r=>r.jp));
   $('cmpRows').innerHTML=rows.map(r=>{const dg=!!GAMES[r.id].digits;return`<tr class="${r.id===cur?'cur':''}"><td>${GAMES[r.id].name}</td><td>${PRICE[r.id]}</td><td>${r.n} 注</td>`+
     (r.n?`<td class="${r.any===bestAny?'best':''}">${(TIERS[r.id].list.length>1&&r.n>1?'約 ':'')+pct(r.any)}</td><td class="${!dg&&r.jp===bestJp?'best':''}">${oneIn(r.jp)}${dg?'<br><span class="rule">壹獎</span>':''}</td>`:'<td>—</td><td>—</td>')+'</tr>'}).join('');
@@ -1329,9 +1332,11 @@ function jackpotText(id,jk){
   const w=Math.max(0,Math.floor(Number(jk.winners)||0)), pp=Math.max(0,Number(jk.perPrize)||0), c=Math.max(0,Number(jk.carry)||0);
   if(id==='lotto'||id==='power'){
     if(w>0)return `上期頭獎 ${w} 注中，每注 <b>${money(pp)}</b>；本期頭獎重新累積`;
+    const e=latest[id]&&evCalc(id,latest[id].evd,null);
+    if(e&&e.pool)return `上期頭獎沒人中，本期頭獎估計約 <b>${money(e.pool)}</b>（累積 ${money(e.carry)}＋本期銷售撥入約 ${money(e.fresh)}）`;
     return c>0?`上期頭獎沒人中，本期頭獎累積<b>至少 ${money(c)}</b>（再加上本期銷售）`:'上期頭獎沒人中';
   }
-  if(id==='d539')return (w>0?`上期頭獎 ${w} 注中，每注 <b>${money(pp)}</b>`:'上期頭獎沒人中')+'；頭獎每注 800 萬，太多人中時會平分';
+  if(id==='d539'){const R=d539Rule(latest[id]&&latest[id].evd);return (w>0?`上期頭獎 ${w} 注中，每注 <b>${money(pp)}</b>`:'上期頭獎沒人中')+`；頭獎每注 ${money(R.jp)}，太多人中時平分（合計最多 ${money(R.cap)}）`}
   return '';
 }
 // ---- 下期開獎時間：20:00 停售、20:30 開獎（台北時間） ----
@@ -1348,7 +1353,10 @@ function renderNextDraw(){
     const when=`${day.getUTCMonth()+1}/${day.getUTCDate()}（${WD[day.getUTCDay()]}）20:30 開獎`;
     let cd; if(left<=0)cd='已停售，等開獎';
     else{const dd=Math.floor(left/1440),hh=Math.floor(left%1440/60),mm=left%60;cd='停售前還有 <b>'+(dd?`${dd} 天 ${hh} 小時`:hh?`${hh} 小時 ${mm} 分`:`${mm} 分`)+'</b>'}
-    $('nextDraw').innerHTML=`下期 ${when} · ${cd}`;
+    const r=latest[cur], todayStr=new Date(now+8*3600e3).toISOString().slice(0,10);
+    const missing=DRAW_DAYS[cur].includes(t.getUTCDay())&&mins>=22*60&&r&&String(r.date)<todayStr;
+    const upd=liveAt?` · 開獎資料 ${new Date(liveAt+8*3600e3).toISOString().slice(11,16)} 更新`:'';
+    $('nextDraw').innerHTML=`下期 ${when} · ${cd}<span class="upd">${upd}</span>`+(missing?'<br><span class="warn">今天的開獎結果還沒出來（台彩資料可能較晚，或今天休市，以台彩公告為準）</span>':'');
     return;
   }
 }
@@ -1609,7 +1617,19 @@ function renderRecScore(){
 // 中獎機率固定，但獎金每期不同。小獎用最近幾期實際每注獎金平均；頭獎用「上期累積＋本期銷售撥入」估計，
 // 並用泊松分布估計同一期還有幾個人也中頭獎（要平分）。超過 5,000 元的獎金扣 20% 所得稅。
 // scripts/ai-predict.mjs 裡有同一套計算（每晚記錄，划算時通知），兩邊要一起改。
-const EV_TAX=0.2, D539_JP=8e6, D539_CAP=24e6;
+const EV_TAX=0.2, D539_JP=8e6, D539_CAP=24e6; // 今彩539 頭獎公告值（讀不到開獎資料時才用）
+function fixedPrizeText(id){ // 3星／4星每個獎項的獎金（最近開獎的實際金額）
+  const t=TIERS[id], r=latest[id], rec=r&&Array.isArray(r.recent)?r.recent:[];
+  const amt=n=>{const v=rec.map(d=>Number(d&&d.prizes&&d.prizes[n])).filter(x=>x>0);return v.length?v[0]:null};
+  const parts=t.list.map(x=>{const a=amt(x[0]);return a?`${x[0]} ${a.toLocaleString('en-US')} 元`:null}).filter(Boolean);
+  return parts.length?`獎金固定（最近一期實際）：${parts.join('、')}。`:'獎金以台彩公告為準。';
+}
+function d539Rule(evd){ // 從實際開獎推算：頭獎每注最高金額、多人中獎時的合計上限
+  const xs=(evd||[]).map(d=>({w:Number(d&&d.winners)||0,pp:Number(d&&d.prizes&&d.prizes['頭獎'])||0})).filter(x=>x.w>0&&x.pp>0);
+  if(!xs.length)return{jp:D539_JP,cap:D539_CAP,fromData:false};
+  const jp=Math.max(...xs.map(x=>x.pp)), shared=xs.filter(x=>x.pp<jp).map(x=>x.w*x.pp);
+  return{jp,cap:shared.length?Math.max(...shared):Math.max(D539_CAP,jp*Math.max(...xs.map(x=>x.w))),fromData:true};
+}
 function evCalc(id,evd,popW){
   const g=GAMES[id], t=TIERS[id]; if(g.digits||!Array.isArray(evd))return null;
   const d0=evd.find(d=>d&&d.sell>0); if(!d0)return null;
@@ -1622,8 +1642,9 @@ function evCalc(id,evd,popW){
   const w=popW&&popW.length===g.z1.max?popW.map(x=>Math.log(1+x/100)).sort((a,b)=>a-b):null;
   const mult={avg:1,least:w?Math.exp(w.slice(0,g.z1.n).reduce((a,b)=>a+b,0)):1,most:w?Math.exp(w.slice(-g.z1.n).reduce((a,b)=>a+b,0)):1};
   let jp, pool=null, fresh=null, carry=0, breakeven=null, base;
-  if(id==='d539'){ // 頭獎每注 800 萬，全部頭獎合計最多 2,400 萬
-    jp=m=>{const l=lam(m);let s=0,pk=Math.exp(-l);for(let k=0;k<80;k++){s+=pk*Math.min(D539_JP,D539_CAP/(k+1));pk*=l/(k+1)}return net(s)};
+  if(id==='d539'){ // 頭獎每注固定金額，太多人中時合計有上限（從實際開獎推算）
+    const R=d539Rule(evd);
+    jp=m=>{const l=lam(m);let s=0,pk=Math.exp(-l);for(let k=0;k<80;k++){s+=pk*Math.min(R.jp,R.cap/(k+1));pk*=l/(k+1)}return net(s)};
     base=evOther+pJP*jp(1);
   }else{
     const rs=evd.filter(d=>d&&d.sell>0&&d.add>0).map(d=>d.add/d.sell); if(!rs.length)return null;
@@ -1649,7 +1670,7 @@ function renderEV(){
   $('evHead').innerHTML=`每注 ${e.price} 元，平均拿回 <b>${e.ev.toFixed(1)} 元</b>（<b>${pc(e.ret)}</b>）<span class="ev-tag ${verdict[1]}">${verdict[0]}</span>`;
   $('evBar').innerHTML=`<span class="fill" style="width:${Math.min(100,e.ret*100).toFixed(1)}%"></span><span class="base" style="left:${Math.min(100,e.baseRet*100).toFixed(1)}%" title="平常"></span>`;
   const lines=[];
-  if(cur==='d539')lines.push(`頭獎每注 800 萬、合計最多 2,400 萬（太多人中會平分），不會累積，所以每期的期望值都差不多。`);
+  if(cur==='d539'){const R=d539Rule(r.evd);lines.push(`頭獎每注 ${money(R.jp)}、合計最多 ${money(R.cap)}（${R.fromData?'依最近開獎推算':'公告值'}；太多人中會平分），不會累積，所以每期的期望值都差不多。`)}
   else{
     lines.push(e.lastWinners>0?`上期頭獎有人中，這期頭獎重新累積，估計約 <b>${money(e.pool)}</b>（本期銷售撥入）。`
       :`上期頭獎沒人中，這期頭獎估計約 <b>${money(e.pool)}</b>（累積 ${money(e.carry)}＋本期銷售撥入約 ${money(e.fresh)}）。`);
@@ -1752,7 +1773,7 @@ function runCheck(){
     }
     const bt=backtestHTML(id,r);
     parts.push(bt?`<h3 class="lab-h">如果從第一期開始每期都買這組</h3>${bt}`:'<p class="rule">歷年開獎資料還沒載入，稍後再查一次。</p>');
-  }else parts.push(`<p class="rule">${t.extra}</p>`);
+  }else parts.push(`<p class="rule">${fixedPrizeText(id)}</p>`);
   parts.push(`<div class="row"><button type="button" class="ghost" id="ckSave">存這組（開獎後自動對獎）</button><span class="rule" id="ckSaved"></span></div>`);
   out.innerHTML=parts.join('');
   $('ckSave').hidden=!picksCol;
@@ -2103,9 +2124,28 @@ async function standalone(){
   const ids=Object.keys(TL_SRC), res=await Promise.allSettled(ids.map(fetchGame));
   res.forEach((r,i)=>{if(r.status==='fulfilled'&&r.value)latest[ids[i]]=r.value});
   latestFailed=!Object.keys(latest).length;
-  renderLatest(); renderPicks(); renderLab(); if(target==='stat'&&histData[cur])run(false,false); scheduleToday();
+  liveAt=Date.now();
+  renderLatest(); renderPicks(); renderLab(); if(target==='stat'&&histData[cur])run(false,false); scheduleToday(); renderNextDraw();
 }
 
+// ---- 即時更新：頁面開著時，開獎時段每 5 分鐘、從別的 App 切回來時，重新抓開獎與 AI 預測 ----
+let liveAt=0, liveBusy=false;
+async function refreshLive(force){
+  if(liveBusy||(!force&&Date.now()-liveAt<4*60e3))return;
+  liveBusy=true;
+  try{
+    const ids=Object.keys(TL_SRC), res=await Promise.allSettled(ids.map(fetchGame)); let changed=false;
+    res.forEach((r,i)=>{if(r.status==='fulfilled'&&r.value){const o=latest[ids[i]];if(!o||o.period!==r.value.period)changed=true;latest[ids[i]]=r.value}});
+    const AI_URL=location.protocol==='file:'?'https://bkhotey4.github.io/taiwan-lottery-picker-web/ai.json':'ai.json';
+    try{const j=await fetch(AI_URL,{cache:'no-cache'}).then(r=>r.ok?r.json():null);if(j&&typeof j==='object')for(const id of ['lotto','power','d539'])if(j[id]&&typeof j[id]==='object'){if(!aiData[id]||aiData[id].updatedAt!==j[id].updatedAt)changed=true;aiData[id]=j[id]}}catch(e){}
+    liveAt=Date.now(); latestFailed=!Object.keys(latest).length;
+    if(changed){renderLatest();renderPicks();renderLab();renderAI();renderEV();if(target==='stat')run(false,false);scheduleToday()}
+    renderNextDraw();
+  }finally{liveBusy=false}
+}
+function inDrawWindow(){const t=new Date(Date.now()+8*3600e3),m=t.getUTCHours()*60+t.getUTCMinutes();return m>=20*60+25&&Object.values(DRAW_DAYS).some(d=>d.includes(t.getUTCDay()))}
+setInterval(()=>{if(document.visibilityState==='visible'&&inDrawWindow())refreshLive(true)},5*60e3);
+document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='visible')refreshLive(false)});
 standalone(); // 開獎直接向台灣彩券 API 抓，存的號碼放在這台裝置
 function renderAvoid(){
   const g=GAMES[cur], off=!!g.digits;
