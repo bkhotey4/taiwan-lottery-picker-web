@@ -339,7 +339,7 @@ body.can-save .save{display:inline-block}
   </nav>
 
   <div class="news intro" id="introBar" hidden role="note">
-    <span><b>第一次用？</b>① 上面選彩種 → ② 按「重新選號」（預設會挑「至少中一個獎」機率最高的組合）→ ③ 喜歡就按「存這組」，開獎後自動對獎。其他功能在「挑號碼」「我的號碼」「分析工具」分頁裡。</span>
+    <span><b>第一次用？</b>① 上面選彩種 → ② 按「重新選號」（預設用統計模型每期計算；也可以改成「中獎機率最大」或「純隨機」）→ ③ 喜歡就按「存這組」，開獎後自動對獎。其他功能在「挑號碼」「我的號碼」「分析工具」分頁裡。</span>
     <span class="news-btns"><button type="button" class="ghost" id="introOk">知道了</button></span>
   </div>
   <div class="news due" id="dueBar" hidden role="status"><span id="dueText"></span></div>
@@ -406,21 +406,18 @@ body.can-save .save{display:inline-block}
     <div class="row"><h2>今日數學模型預測</h2><span class="rule" id="todayMeta"></span></div>
     <p class="rule">「每日學習綜合」：7 個統計模型每期開獎後依實際表現自動調整權重（表現好的權重變大），再加權投票出下一期號碼。新開獎後自動重算。</p>
     <div class="today-list" id="todayList"><p class="rule">計算中…</p></div>
-    <p class="note">這些號碼由數學模型依歷年開獎算出，不是亂數；但回測顯示模型命中率跟隨機選號差不多，請當參考就好。全部 13 種模型在「分析工具 → 預測實驗室」。</p>
+    <p class="note">這裡只看模型的預測；要產生買的號碼請用「重新選號」（統計模型的第 1 組就是這裡的號碼）。號碼由數學模型依歷年開獎算出，不是亂數；但回測顯示命中率跟隨機選號差不多，請當參考就好。全部模型與各彩券的回測在「分析工具 → 預測實驗室」。</p>
   </section>
 
-  <section class="slip" id="recBox" data-tab="pick" aria-label="幫我挑一組">
-    <div class="row"><h2>要簽了嗎？幫我挑一組</h2><span class="rule" id="recMeta"></span></div>
+  <section class="slip" id="recBox" data-tab="pick" aria-label="挑少人選的號碼">
+    <div class="row"><h2>挑少人選的號碼</h2><span class="rule" id="recMeta"></span></div>
     <p class="tagline" id="recTag"></p>
     <details class="why-box"><summary>怎麼挑的？大家最常選哪些號碼？</summary><p class="rule" id="recIntro"></p></details>
     <div class="controls">
       <label class="field">組數
         <select id="recCount"><option>1</option><option>2</option><option selected>3</option><option>5</option><option>10</option></select>
       </label>
-      <label class="field">目標
-        <select id="recTarget"><option value="max">至少中一個獎機率最大</option><option value="share">萬一中頭獎，少跟人平分</option></select>
-      </label>
-      <button type="button" class="go" id="recGo">幫我挑</button>
+      <button type="button" class="go" id="recGo">挑號碼</button>
     </div>
     <div class="rec-out" id="recOut"></div>
     <p class="money" id="recScore"></p>
@@ -1281,7 +1278,7 @@ function run(anim,log=anim){
    $('setsInfo').innerHTML=L0?`<b>統計模型算出的號碼</b> · 用到 ${rocYear(L0.to)} 年第 ${Number(L0.to)%1e6} 期為止 ${L0.draws.toLocaleString('en-US')} 期開獎計算 · 新開獎後自動重算<br><span>不是亂數：每組來自不同模型。模型回測都跟隨機差不多，詳見「分析工具 → 預測實驗室」</span>`
      :target==='stat'?`<b>統計資料載入中…</b>（先顯示中獎機率最大的組合，資料載入後會自動換成統計模型的號碼）`
      :lastOpt?`<b>中獎機率最大的組合</b> · ${hm} 選的 · 按「重新選號」再選一次<br><span>每組盡量不會同時中獎，「至少中一個獎」比隨機買高；可以指定必選號碼</span>`
-     :`<b>隨機號碼</b> · ${hm} 抽的 · 按「重新選號」再抽一次<br><span>純隨機、可以指定必選號碼；想挑比較少人選的，用「幫我挑一組」</span>`}
+     :`<b>隨機號碼</b> · ${hm} 抽的 · 按「重新選號」再抽一次<br><span>純隨機、可以指定必選號碼；想挑比較少人選的，用右邊「挑號碼」分頁的「挑少人選的號碼」</span>`}
   $('backOut').hidden=true;
   if(log){hist.unshift({t:Date.now(),g:g.name,sets:last.map(s=>asText(g,s))}); hist=hist.slice(0,8); store('lucky.hist',hist); renderHist()}
   $('copied').textContent='';
@@ -1397,7 +1394,7 @@ let picksCol=null, picks=[], picksReady=false;
 function taipei(iso){const t=new Date(new Date(iso).getTime()+8*3600e3);return{date:t.toISOString().slice(0,10),hour:t.getUTCHours()}}
 function pickKey(game,z1,z2){return game+':'+z1.join(',')+'|'+z2.join(',')}
 // 存的號碼是怎麼來的（「我的勝率」依這個分組）
-const PICK_SRC={stat:'統計模型',max:'中獎機率最大',rand:'純隨機',rec:'幫我挑一組',lab:'預測實驗室',manual:'自己輸入'};
+const PICK_SRC={stat:'統計模型',max:'中獎機率最大',rand:'純隨機',rec:'挑少人選',lab:'預測實驗室',manual:'自己輸入'};
 function cleanPick(p){
   if(!p||!GAMES[p.game])return null;
   const z1=(Array.isArray(p.z1)?p.z1:[]).map(Number).filter(Number.isInteger);
@@ -1475,7 +1472,7 @@ function renderWinRate(){
     gr.n++; gr.exp+=t.list.reduce((a,x)=>a+x[2],0)/t.total; gr.spent+=PRICE[p.game];
     if(m.prize){gr.won++;const a=st.draw.prizes&&st.draw.prizes[m.prize];if(Number.isFinite(a))gr.gained+=a}}
   const keys=Object.keys(groups);
-  if(!keys.length){el.innerHTML=picks.length?'<p class="rule">開獎後，這裡會依「統計模型、中獎機率最大、幫我挑一組、自己輸入…」分開統計你的中獎率。</p>':'';return}
+  if(!keys.length){el.innerHTML=picks.length?'<p class="rule">開獎後，這裡會依「統計模型、中獎機率最大、挑少人選、自己輸入…」分開統計你的中獎率。</p>':'';return}
   const tot=keys.reduce((a,k)=>({n:a.n+groups[k].n,won:a.won+groups[k].won,exp:a.exp+groups[k].exp,spent:a.spent+groups[k].spent,gained:a.gained+groups[k].gained}),{n:0,won:0,exp:0,spent:0,gained:0});
   const row=(name,g2)=>`<tr><td>${name}</td><td>${g2.n}</td><td><b>${g2.won}</b>（${pct(g2.won/g2.n)}）</td><td>約 ${g2.exp.toFixed(1)}（${pct(g2.exp/g2.n)}）</td><td>${g2.spent.toLocaleString('en-US')}／${g2.gained.toLocaleString('en-US')}</td></tr>`;
   el.innerHTML=`<h3 class="lab-h">我的勝率</h3><div class="cmp-wrap"><table class="cmp"><thead><tr><th>來源</th><th>已開獎</th><th>中獎</th><th>理論上平均</th><th>花／中（元）</th></tr></thead><tbody>`+
@@ -1494,7 +1491,7 @@ function renderSaveButtons(){
   document.querySelectorAll('#labPreds .save').forEach(b=>{const p=L&&L.next[+b.dataset.pred];if(!p)return;
     const done=saved.has(pickKey(cur,p.z1,p.z2?[p.z2]:[]));b.disabled=done;b.textContent=done?'已存':'存這組'});
 }
-// ---- 幫我挑一組：機率都一樣，挑「比較少人會選」的組合，萬一中頭獎比較不用跟人平分 ----
+// ---- 挑少人選的號碼：機率都一樣，挑「比較少人會選」的組合，萬一中頭獎比較不用跟人平分 ----
 const LUCKY=new Set([7,8,9,6,3,18,28,38,16,26,36]); // 常被當成幸運數字的號碼
 // 由歷年「銷售注數」與「中獎人數」反推的每個號碼熱門程度（stats.games[彩種].pop，由 scripts/fetch-stats.mjs 產生）
 function popData(id){
@@ -1559,12 +1556,10 @@ function renderRecIntro(){
   renderRecScore();
 }
 function renderRecTag(){
-  const mx=$('recTarget').value==='max';
-  $('recTag').innerHTML=mx?'挑<b>彼此不會同時中獎</b>的組合：每一組機率不變，但買多組時「至少中一個獎」最高（買 1 組時跟隨機一樣）。'
-    :'挑<b>比較少人選</b>的組合：中獎機率跟隨機選號一樣，但萬一中頭獎，比較不用跟別人平分。';
+  $('recTag').innerHTML='挑<b>比較少人選</b>的組合：中獎機率跟其他號碼一樣，但萬一中頭獎，比較不用跟別人平分（依台彩公布的中獎人數推算大家愛選哪些號碼）。';
 }
 async function doRecommend(){
-  const id=cur, g=GAMES[id], t=TIERS[id], p=t.list.reduce((a,x)=>a+x[2],0)/t.total, cnt=+$('recCount').value, mx=$('recTarget').value==='max'&&cnt>1;
+  const id=cur, g=GAMES[id], t=TIERS[id], p=t.list.reduce((a,x)=>a+x[2],0)/t.total, cnt=+$('recCount').value, mx=false;
   let opt=null, sets;
   if(mx){opt=maxWinSets(g,[],cnt);sets=opt.sets.map(s=>({z1:s.z1.slice(),z2:s.z2.slice(),why:[...(g.digits?[]:popScore(id,s.z1).why.slice(0,1)),'跟其他組盡量不會同時中獎']}))}
   else sets=recommendSets(id,cnt);
@@ -2140,8 +2135,6 @@ bindLab();
 bindManual();
 bindIO(); bindCap(); bindSim(); bindCheck(); bindTarget();
 $('recGo').onclick=doRecommend;
-{const rt=store('lucky.recTarget'); if(rt==='share'||rt==='max')$('recTarget').value=rt;}
-$('recTarget').onchange=()=>{store('lucky.recTarget',$('recTarget').value);renderRecTag();$('recOut').innerHTML=''};
 renderRecTag();
 // ---- 可安裝的 App（https 網頁才能安裝；App 內建頁面是 file:） ----
 if(location.protocol==='https:'){
