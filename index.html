@@ -254,7 +254,9 @@ body.can-save .save{display:inline-block}
 .io .msg:empty{display:none}
 .news{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:8px;background:var(--paper);border:2px solid var(--accent);border-radius:12px;padding:10px 14px;font-size:14px}
 .news b{font-family:var(--f-num);color:var(--accent)}
+#aiNote{display:block;line-height:1.6}
 .news.due{border-color:var(--pick)}
+.stale{color:var(--accent)}
 .news.due b{color:var(--pick)}
 .ck-out p{margin:8px 0 0;font-size:13px;line-height:1.6}
 .ck-out b{font-family:var(--f-num)}
@@ -742,7 +744,8 @@ function renderFreq(){
   const st=cleanStat(s,g.z1.max); if(!st){box.hidden=true;return}
   box.hidden=false;
   const draws=Math.floor(Number(s.draws))||0, date=v=>String(v||'').replace(/[^\d-]/g,'').replace(/-/g,'/');
-  $('freqMeta').textContent=`${draws.toLocaleString('en-US')} 期 · ${date(s.from)}–${date(s.to)}`;
+  const sAge=(Date.now()-Date.parse(stats.updatedAt))/864e5;
+  $('freqMeta').textContent=`${draws.toLocaleString('en-US')} 期 · ${date(s.from)}–${date(s.to)}`+(sAge>10?` · 統計已 ${Math.floor(sAge)} 天沒更新`:'');
   const w=$('freqChart').clientWidth||600; // 依實際寬度畫，手機上字才不會被縮小
   $('freqChart').innerHTML=barChart(st.counts,st,`${g.name}每個號碼開出次數`,w);
   const z2=g.z2&&s.z2?cleanStat(s.z2,g.z2.max):null;
@@ -870,7 +873,11 @@ function renderAI(){
   $('aiRows').innerHTML=n?`<tr class="base"><td>理論值（隨機）</td><td>${n} 期</td><td>${exp.toFixed(2)}</td><td>約 ${(n*pAny).toFixed(1)}</td><td>—</td></tr>`+
     ms.map(m=>`<tr><td>${nm(m.id)}</td><td>${N(m.n)} 期</td><td>${(N(m.hits)/Math.max(1,N(m.n))).toFixed(2)}</td><td>${N(m.wins)}</td><td>${money(m.spent)}／${money(m.gained)}</td></tr>`).join('')
     :'<tr><td colspan="5">還沒有對過獎：第一次對獎在下一期開獎後。</td></tr>';
-  $('aiNote').textContent=`從 ${when(a.since)} 開始記錄。只算「停售（20:00）前就存好」的預測；花／中以每種方法每期買 1 注、官方實際獎金計算。下面列出最近幾期，方法跟上面的選單同步。`;
+  // 資料多久沒更新：排程每晚跑，超過 2 天（而且中間有開獎）代表排程可能出問題
+  const upd=Date.parse(a.updatedAt), age=Number.isFinite(upd)?(Date.now()-upd)/36e5:null;
+  const stale=age!==null&&age>50&&(()=>{for(let h=0;h<age;h+=24){const d=new Date(Date.now()-h*36e5+8*36e5);if(DRAW_DAYS[cur].includes(d.getUTCDay()))return true}return false})();
+  $('aiNote').innerHTML=(age!==null?`<b class="${stale?'stale':''}">資料更新：${when(a.updatedAt)}${stale?`（已經 ${Math.floor(age/24)} 天沒更新，自動排程可能出了問題）`:''}</b>。`:'')+
+    `從 ${when(a.since)} 開始記錄。只算「停售（20:00）前就存好」的預測；花／中以每種方法每期買 1 注、官方實際獎金計算。下面列出最近幾期，方法跟上面的選單同步。`;
   const mid=$('labLogM').value||'ml', log=Array.isArray(a.log)?a.log:[];
   $('aiLog').innerHTML=log.slice(0,30).map(e=>{const r=e&&e.result; if(!r)return '';
     const p=(e.preds||[]).find(x=>x.id===mid), sc=(r.scores||[]).find(x=>x.id===mid); if(!p||!sc)return '';
