@@ -6,6 +6,7 @@
 <title>彩券號碼機</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700;900&family=JetBrains+Mono:wght@500;700&display=swap">
+<script>try{var _t=JSON.parse(localStorage.getItem('lucky.theme'));if(_t==='light'||_t==='dark')document.documentElement.dataset.theme=_t}catch(e){}</script>
 <style>
 /* Layout: one column "betting slip" — game tabs, a drawn row of balls per set, then options and a short history */
 :root{
@@ -158,6 +159,10 @@ h2{font-size:15px;margin:0;letter-spacing:.04em}
 .freq-sum b{font-family:var(--f-num)}
 #freqZ2 h3{font-size:13px;margin:6px 0 4px;color:var(--muted);font-weight:500}
 .head-row{display:flex;justify-content:space-between;align-items:flex-start;gap:12px}
+.theme-sw{display:inline-flex;border:1.5px solid var(--line);border-radius:999px;overflow:hidden;background:var(--paper);margin-top:6px}
+.theme-sw button{font:inherit;font-size:13px;font-weight:700;border:0;background:none;color:var(--muted);padding:6px 10px;cursor:pointer;white-space:nowrap}
+@media (max-width:600px){.theme-sw button{font-size:12px;padding:5px 8px}.head-row>div:first-child{min-width:0}}
+.theme-sw button[aria-pressed="true"]{background:var(--ink);color:var(--paper)}
 .install{flex:none;font:inherit;font-weight:700;font-size:14px;background:var(--ink);color:var(--paper);border:0;border-radius:999px;padding:8px 14px;cursor:pointer;margin-top:6px}
 .install-btns{display:flex;flex-direction:column;align-items:flex-end;gap:6px}
 .install.alt{background:var(--paper);color:var(--ink);border:1.5px solid var(--line);text-decoration:none;margin-top:0}
@@ -324,6 +329,9 @@ body.can-save .save{display:inline-block}
         <p>台灣彩券隨機選號，自己玩的娛樂工具</p>
       </div>
       <div class="install-btns">
+        <div class="theme-sw" role="group" aria-label="外觀">
+          <button type="button" data-theme="auto">自動</button><button type="button" data-theme="light">亮色</button><button type="button" data-theme="dark">暗色</button>
+        </div>
         <button type="button" class="install" id="installBtn" hidden>安裝 App</button>
         <a class="install alt" id="apkBtn" hidden href="https://github.com/bkhotey4/taiwan-lottery-picker-web/releases/latest/download/lotto-picker.apk">下載 Android App</a>
       </div>
@@ -2249,6 +2257,15 @@ $('clear').onclick=()=>{hist=[];store('lucky.hist',hist);renderHist()};
 $('copy').onclick=async()=>{const g=GAMES[cur];const txt=`${g.name}\n`+last.map((s,i)=>`${i+1}. ${asText(g,s)}`).join('\n');
   try{await navigator.clipboard.writeText(txt);$('copied').textContent='已複製'}catch(e){$('copied').textContent='無法自動複製，請手動選取號碼'}};
 if(matchMedia('(min-width:960px)').matches)$('chanceMore').open=true; // 電腦版預設展開明細
+// ---- 外觀：自動（跟著系統）／亮色／暗色，記在這台裝置 ----
+function setTheme(t){
+  if(t==='light'||t==='dark')document.documentElement.dataset.theme=t; else delete document.documentElement.dataset.theme;
+  store('lucky.theme',t==='light'||t==='dark'?t:'auto');
+  document.querySelectorAll('.theme-sw button').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.theme===(t==='light'||t==='dark'?t:'auto'))));
+  const m=document.querySelector('meta[name="theme-color"]'); if(m)m.content=getComputedStyle(document.documentElement).getPropertyValue('--bg').trim()||'#c8102e';
+}
+document.querySelectorAll('.theme-sw button').forEach(b=>b.onclick=()=>setTheme(b.dataset.theme));
+setTheme(store('lucky.theme')||'auto');
 renderHist(); renderAll(false);
 if(!store('lucky.intro')){$('introBar').hidden=false;$('introOk').onclick=()=>{store('lucky.intro',1);$('introBar').hidden=true}}
 </script>
