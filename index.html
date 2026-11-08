@@ -84,6 +84,19 @@ h2{font-size:15px;margin:0;letter-spacing:.04em}
 .jackpot{font-size:13px;color:var(--ink)}
 .jackpot:empty{display:none}
 .jackpot b{color:var(--accent);font-family:var(--f-num)}
+.freq svg{display:block;width:100%;height:auto;overflow:visible}
+.freq .bar{fill:var(--pick);pointer-events:none}
+.freq .hit{fill:transparent;cursor:pointer}
+.freq .hit:hover+.bar,.freq .bar.on{fill:var(--accent)}
+.freq .band{fill:var(--line);opacity:.55}
+.freq .exp{stroke:var(--ink);stroke-width:1.5;stroke-dasharray:4 3;opacity:.7}
+.freq .axis{fill:var(--muted);font-size:10px;font-family:var(--f-num)}
+.freq .grid{stroke:var(--line);stroke-width:1}
+.freq-tip{font-size:13px;color:var(--muted);min-height:1.4em}
+.freq-tip b{color:var(--ink);font-family:var(--f-num)}
+.freq-sum{margin:0;font-size:14px}
+.freq-sum b{font-family:var(--f-num)}
+#freqZ2 h3{font-size:13px;margin:6px 0 4px;color:var(--muted);font-weight:500}
 .cmp-wrap{overflow-x:auto}
 .cmp{width:100%;border-collapse:collapse;font-size:13px}
 .cmp th,.cmp td{text-align:right;padding:7px 6px;border-bottom:1px solid var(--line);white-space:nowrap;font-variant-numeric:tabular-nums}
@@ -173,6 +186,25 @@ body.can-save .save{display:inline-block}
     <p class="note" id="picksNote">按號碼旁的「存這組」就會存在你的帳號裡，手機、電腦都看得到。開獎資料更新後，會自動對照存號碼之後的第一期（晚上 8 點後存的，算下一期）。</p>
   </section>
 
+  <section class="slip" id="wheelBox" aria-label="包牌試算">
+    <h2>包牌試算</h2>
+    <p class="rule" id="wheelRule"></p>
+    <div class="controls">
+      <label class="field grow">你的號碼（空格或逗號分隔）
+        <input id="wheelNums" inputmode="numeric" placeholder="例如 3 10 19 27 33 38 44">
+      </label>
+      <label class="field" id="wheelZ2Wrap">第二區（1–8 個）
+        <input id="wheelZ2" inputmode="numeric" placeholder="例如 2 7">
+      </label>
+      <button type="button" class="ghost" id="wheelRand">隨機挑號碼</button>
+    </div>
+    <p class="msg" id="wheelMsg"></p>
+    <div class="odds" id="wheelOut"></div>
+    <details class="tiers" id="wheelListWrap"><summary id="wheelListSum">展開全部組合</summary><div class="hist" id="wheelList"></div></details>
+    <div class="row"><button type="button" class="ghost" id="wheelCopy">複製全部組合</button><span class="rule" id="wheelCopied"></span></div>
+    <p class="note">包牌就是把你選的號碼所有組合都買下來。頭獎機率跟隨機買同樣注數一樣；但因為組合全集中在少數號碼上，「至少中一個獎」反而比隨機買低很多。好處是開出的號碼落在你的號碼裡時，會一次中很多注。</p>
+  </section>
+
   <section class="slip" aria-label="預算比較">
     <h2>同樣的預算，玩哪個比較容易中？</h2>
     <label class="field">每期預算（元）
@@ -183,6 +215,16 @@ body.can-save .save{display:inline-block}
       <tbody id="cmpRows"></tbody>
     </table></div>
     <p class="note">每注號碼都不一樣時的機率。中獎機會越高的彩種，獎金通常越小；彩券平均拿回來的錢比花出去的少，買越多平均虧越多，先訂好預算再玩。3星／4星只算正彩。</p>
+  </section>
+
+  <section class="slip" id="freqBox" aria-label="歷年號碼開出次數" hidden>
+    <div class="row"><h2>歷年號碼開出次數</h2><span class="rule" id="freqMeta"></span></div>
+    <div class="freq" id="freqChart"></div>
+    <div class="freq-tip" id="freqTip">滑過或點一根長條，看那個號碼開出幾次</div>
+    <div id="freqZ2"></div>
+    <p class="freq-sum" id="freqSum"></p>
+    <details class="tiers"><summary>看表格</summary><div class="cmp-wrap"><table class="cmp" id="freqTable"></table></div></details>
+    <p class="note">灰色帶是「公平抽球」下單一號碼常見的次數範圍（電腦模擬 2,000 次的 90% 區間），虛線是理論平均。號碼本來就會有多有少，這些差距在隨機範圍內，不代表哪個號碼比較容易開出，也沒辦法用來提高中獎機率。</p>
   </section>
 
   <section class="odds" id="odds" aria-label="頭獎機率"></section>
@@ -215,6 +257,132 @@ const TIERS={
   s3:{total:1000,list:[['正彩','3 位依序全中',1]],extra:'3星彩的組彩、對彩等是另外的下注玩法，這裡只算正彩。'},
   s4:{total:10000,list:[['正彩','4 位依序全中',1]],extra:'4星彩的組彩等是另外的下注玩法，這裡只算正彩。'}
 };
+// ---- 包牌試算 ----
+const WHEEL_MAX=16; // 最多選幾個號碼（大樂透 16 個 = 8,008 注）
+let wheelLast=[];
+function parseNums(raw,max){
+  const list=[...new Set(String(raw).split(/[\s,，、]+/).filter(Boolean).map(Number))];
+  return{list,bad:list.some(x=>!Number.isInteger(x)||x<1||x>max)};
+}
+function combos(arr,k){const out=[],cur2=[];(function rec(s){if(cur2.length===k){out.push(cur2.slice());return}for(let i=s;i<=arr.length-(k-cur2.length);i++){cur2.push(arr[i]);rec(i+1);cur2.pop()}})(0);return out}
+// 超幾何：從 N 顆開 n 顆，你的 m 個號碼裡剛好中 j 個的機率
+function hyper(N,n,m,j){return j<0||j>n||j>m||n-j>N-m?0:comb(m,j)*comb(N-m,n-j)/comb(N,n)}
+function renderWheel(){
+  const g=GAMES[cur], box=$('wheelBox');
+  if(g.digits){box.hidden=true;return}
+  box.hidden=false;
+  const n=g.z1.n, minM=n+1;
+  $('wheelRule').textContent=`${g.name}：選 ${minM}–${WHEEL_MAX} 個號碼（01–${fmt(g.z1.max,2)}），每注 ${PRICE[cur]} 元`+(g.z2?'，第二區可以選 1–8 個':'');
+  $('wheelZ2Wrap').hidden=!g.z2;
+  const out=$('wheelOut'), list=$('wheelList');
+  const fail=t=>{$('wheelMsg').textContent=t;out.innerHTML='';list.innerHTML='';$('wheelListWrap').hidden=true;$('wheelCopy').hidden=true;wheelLast=[]};
+  const a=parseNums($('wheelNums').value,g.z1.max);
+  if(!$('wheelNums').value.trim())return fail('');
+  if(a.bad)return fail(`號碼要在 01–${fmt(g.z1.max,2)} 之間`);
+  const m=a.list.length;
+  if(m<minM)return fail(`至少選 ${minM} 個號碼（目前 ${m} 個）`);
+  if(m>WHEEL_MAX)return fail(`最多 ${WHEEL_MAX} 個號碼（目前 ${m} 個）`);
+  let z2=[];
+  if(g.z2){const b=parseNums($('wheelZ2').value,g.z2.max);if(b.bad)return fail('第二區要在 01–08 之間');z2=b.list.sort((x,y)=>x-y);if(!z2.length)return fail('第二區至少選 1 個')}
+  $('wheelMsg').textContent='';
+  const nums=a.list.sort((x,y)=>x-y), k=g.z2?z2.length:1;
+  const c=comb(m,n), tickets=c*k, cost=tickets*PRICE[cur];
+  const N=g.z1.max;
+  let jp=c/comb(N,n), any;
+  if(cur==='lotto'){ // 中 3 個以上，或中 2 個＋特別號在你的號碼裡
+    any=0;for(let j=3;j<=6;j++)any+=hyper(N,6,m,j);
+    any+=hyper(N,6,m,2)*(m-2)/(N-6);
+  }else if(cur==='power'){ // 第二區有中：第一區中 1 個以上；沒中：第一區中 3 個以上
+    const ph=k/8;let ge1=0,ge3=0;for(let j=1;j<=6;j++){const p=hyper(N,6,m,j);ge1+=p;if(j>=3)ge3+=p}
+    any=ph*ge1+(1-ph)*ge3; jp*=ph;
+  }else{any=0;for(let j=2;j<=5;j++)any+=hyper(N,5,m,j)}
+  // 對照：同樣注數隨機買（各注獨立估算）
+  const t=TIERS[cur], p1=t.list.reduce((s,x)=>s+x[2],0)/t.total, anyRand=1-Math.pow(1-p1,tickets);
+  out.innerHTML=[
+    ['總共',`${tickets.toLocaleString('en-US')} 注`,g.z2?`${c.toLocaleString('en-US')} 組 × 第二區 ${k} 個`:`${m} 個號碼選 ${n} 個`,false],
+    ['要花',`${cost.toLocaleString('en-US')} 元`,`每注 ${PRICE[cur]} 元`,true],
+    ['中頭獎',oneIn(jp),pct(jp),false],
+    ['至少中一個獎',pct(any),`隨機買 ${tickets.toLocaleString('en-US')} 注約 ${pct(anyRand)}`,true]
+  ].map(([l,v,s,h])=>`<div${h?' class="hl"':''}><small>${l}</small><strong>${v}</strong><em>${s}</em></div>`).join('');
+  // 列出組合（太多就不列）
+  const z1c=combos(nums,n);
+  wheelLast=g.z2?z1c.flatMap(cb=>z2.map(z=>cb.map(v=>fmt(v,2)).join(' ')+' ＋ '+fmt(z,2))):z1c.map(cb=>cb.map(v=>fmt(v,2)).join(' '));
+  const SHOW=300;
+  $('wheelListSum').textContent=wheelLast.length>SHOW?`展開前 ${SHOW} 組（共 ${wheelLast.length.toLocaleString('en-US')} 組，複製會複製全部）`:`展開全部 ${wheelLast.length} 組`;
+  list.innerHTML=wheelLast.slice(0,SHOW).map((t,i)=>`<div><span>${String(i+1).padStart(4,' ')}</span><b>${t}</b></div>`).join('');
+  $('wheelListWrap').hidden=false; $('wheelCopy').hidden=false; $('wheelCopied').textContent='';
+}
+function bindWheel(){ // 在頁面最後才呼叫（$ 定義之後）
+$('wheelNums').addEventListener('input',renderWheel);
+$('wheelZ2').addEventListener('input',renderWheel);
+$('wheelRand').onclick=()=>{
+  const g=GAMES[cur]; if(g.digits)return;
+  $('wheelNums').value=pickUnique(g.z1.n+2,g.z1.max,[]).sort((a,b)=>a-b).map(v=>fmt(v,2)).join(' ');
+  if(g.z2)$('wheelZ2').value=pickUnique(2,g.z2.max,[]).sort((a,b)=>a-b).map(v=>fmt(v,2)).join(' ');
+  renderWheel();
+};
+$('wheelCopy').onclick=async()=>{
+  const txt=`${GAMES[cur].name} 包牌 ${wheelLast.length} 注\n`+wheelLast.map((t,i)=>`${i+1}. ${t}`).join('\n');
+  try{await navigator.clipboard.writeText(txt);$('wheelCopied').textContent='已複製'}catch(e){$('wheelCopied').textContent='無法自動複製，請手動選取'}
+};
+}
+
+// ---- 歷年號碼開出次數：資料來自 stats/all（Claude 頁面）或 stats.json（獨立網頁） ----
+let stats=null;
+function cleanStat(s,max){
+  if(!s||typeof s!=='object')return null;
+  const counts=(Array.isArray(s.counts)?s.counts:[]).map(Number);
+  if(counts.length!==max||counts.some(v=>!Number.isFinite(v)||v<0))return null;
+  const pair=a=>Array.isArray(a)&&a.length===2&&a.every(Number.isFinite)?a.map(Number):null;
+  return{counts,expected:Number(s.expected)||0,count90:pair(s.count90),gap90:pair(s.gap90)};
+}
+function barChart(counts,st,label,width){
+  const W=Math.max(260,Math.round(width||600)),H=W<420?150:170,L=30,B=18,T=6,n=counts.length,max=Math.max(...counts,st.count90?st.count90[1]:0);
+  const top=Math.ceil(max*1.08/50)*50, y=v=>T+(H-T-B)*(1-v/top), slot=(W-L)/n, bw=Math.max(2,slot-2);
+  let svg=`<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="${label}">`;
+  for(let v=0;v<=top;v+=top/2)svg+=`<line class="grid" x1="${L}" x2="${W}" y1="${y(v)}" y2="${y(v)}"/><text class="axis" x="${L-4}" y="${y(v)+3}" text-anchor="end">${v}</text>`;
+  if(st.count90)svg+=`<rect class="band" x="${L}" width="${W-L}" y="${y(st.count90[1])}" height="${y(st.count90[0])-y(st.count90[1])}"/>`;
+  counts.forEach((v,i)=>{
+    const x=L+i*slot+(slot-bw)/2, h=Math.max(0,y(0)-y(v)), r=Math.min(4,bw/2);
+    svg+=`<rect class="hit" data-i="${i}" x="${L+i*slot}" y="${T}" width="${slot}" height="${H-T-B}"><title>${fmt(i+1,2)} 號：${v} 次</title></rect>`+
+      `<path class="bar" data-i="${i}" d="M${x},${y(0)}v${-(h-r)}a${r},${r} 0 0 1 ${r},${-r}h${bw-2*r}a${r},${r} 0 0 1 ${r},${r}v${h-r}z"/>`;
+    const step=n<=10?1:slot<9?10:5;
+    if(step===1||(i+1)%step===0||i===0)svg+=`<text class="axis" x="${L+i*slot+slot/2}" y="${H-5}" text-anchor="middle">${fmt(i+1,2)}</text>`;
+  });
+  if(st.expected)svg+=`<line class="exp" x1="${L}" x2="${W}" y1="${y(st.expected)}" y2="${y(st.expected)}"/>`;
+  return svg+'</svg>';
+}
+function renderFreq(){
+  const box=$('freqBox'), g=GAMES[cur], s=stats&&stats.games&&stats.games[cur];
+  if(!s||g.digits){box.hidden=true;return}
+  const st=cleanStat(s,g.z1.max); if(!st){box.hidden=true;return}
+  box.hidden=false;
+  const draws=Math.floor(Number(s.draws))||0, date=v=>String(v||'').replace(/[^\d-]/g,'').replace(/-/g,'/');
+  $('freqMeta').textContent=`${draws.toLocaleString('en-US')} 期 · ${date(s.from)}–${date(s.to)}`;
+  const w=$('freqChart').clientWidth||600; // 依實際寬度畫，手機上字才不會被縮小
+  $('freqChart').innerHTML=barChart(st.counts,st,`${g.name}每個號碼開出次數`,w);
+  const z2=g.z2&&s.z2?cleanStat(s.z2,g.z2.max):null;
+  $('freqZ2').innerHTML=z2?`<h3>第二區</h3><div class="freq">${barChart(z2.counts,z2,'第二區每個號碼開出次數',w)}</div>`:'';
+  const c=st.counts, mx=Math.max(...c), mn=Math.min(...c), gap=mx-mn;
+  const who=v=>c.map((x,i)=>x===v?fmt(i+1,2):null).filter(Boolean).join('、');
+  const out=st.count90?c.filter(v=>v<st.count90[0]||v>st.count90[1]).length:0;
+  let verdict='';
+  if(st.gap90)verdict=gap<st.gap90[0]?`比公平抽球常見的 ${st.gap90[0]}–${st.gap90[1]} 次還小，一樣是隨機的結果。`:gap>st.gap90[1]?`比公平抽球常見的 ${st.gap90[0]}–${st.gap90[1]} 次大一點，不過一百次裡本來就會有幾次這樣，單看這個不能說號碼不平均。`:`公平抽球模擬下，同樣期數常見差距是 ${st.gap90[0]}–${st.gap90[1]} 次，所以這很正常。`;
+  $('freqSum').innerHTML=`最多 <b>${who(mx)}</b> 號 <b>${mx}</b> 次，最少 <b>${who(mn)}</b> 號 <b>${mn}</b> 次，相差 <b>${gap}</b> 次。${verdict}`+
+    (st.count90?`有 ${out} 個號碼落在灰色帶外面，${c.length} 個號碼裡大約 ${Math.round(c.length*0.1)} 個在外面本來就是正常的。`:'');
+  $('freqTable').innerHTML='<thead><tr><th>號碼</th><th>次數</th><th>和平均差</th></tr></thead><tbody>'+
+    c.map((v,i)=>`<tr><td>${fmt(i+1,2)}</td><td>${v}</td><td>${v-st.expected>=0?'+':''}${(v-st.expected).toFixed(1)}</td></tr>`).join('')+'</tbody>';
+  $('freqTip').innerHTML='滑過或點一根長條，看那個號碼開出幾次';
+}
+{let rt;addEventListener('resize',()=>{clearTimeout(rt);rt=setTimeout(()=>{if(!$('freqBox').hidden)renderFreq()},200)})}
+document.querySelector('#freqBox').addEventListener('pointerover',e=>{
+  const h=e.target.closest('.hit'); if(!h||!stats)return;
+  const s=stats.games[cur], isZ2=!!h.closest('#freqZ2'), st=isZ2?s.z2:s, i=+h.dataset.i, v=Number(st.counts[i]);
+  document.querySelectorAll('#freqBox .bar.on').forEach(b=>b.classList.remove('on'));
+  h.nextElementSibling&&h.nextElementSibling.classList.add('on');
+  $('freqTip').innerHTML=`${isZ2?'第二區 ':''}<b>${fmt(i+1,2)}</b> 號：<b>${v}</b> 次（理論平均 ${Number(st.expected).toFixed(0)} 次，${v>=st.expected?'多':'少'} ${Math.abs(v-st.expected).toFixed(0)} 次）`;
+});
+
 // ---- 預算比較：每注價格（元） ----
 const PRICE={lotto:50,power:100,d539:50,s3:25,s4:25};
 function renderBudget(){
@@ -260,7 +428,7 @@ const saved=store('lucky.game'); if(saved&&GAMES[saved])cur=saved;
 let hist=store('lucky.hist')||[];
 
 function renderTabs(){$('tabs').innerHTML=Object.entries(GAMES).map(([k,g])=>`<button type="button" data-k="${k}" aria-pressed="${k===cur}">${g.name}</button>`).join('');
-  $('tabs').querySelectorAll('button').forEach(b=>b.onclick=()=>{cur=b.dataset.k;store('lucky.game',cur);$('must').value='';renderAll(true)})}
+  $('tabs').querySelectorAll('button').forEach(b=>b.onclick=()=>{cur=b.dataset.k;store('lucky.game',cur);$('must').value='';$('wheelNums').value='';$('wheelZ2').value='';renderAll(true)})}
 function fmt(v,pad){return String(v).padStart(pad,'0')}
 function parseMust(g){
   const raw=$('must').value.trim(); if(!raw)return {ok:true,list:[]};
@@ -524,6 +692,7 @@ async function standalone(){
   picksCol=localPicks; document.body.classList.add('can-save');
   $('picksNote').textContent='按號碼旁的「存這組」就會存在這台裝置的瀏覽器裡（換裝置或清除瀏覽資料就不見）。每次打開頁面都會抓最新開獎，自動對照存號碼之後的第一期（晚上 8 點後存的，算下一期）。';
   reloadLocalPicks();
+  fetch('stats.json',{cache:'no-cache'}).then(r=>r.ok?r.json():null).then(j=>{if(j){stats=j;renderFreq()}}).catch(()=>{}); // 和網頁放在一起的歷年統計
   const ids=Object.keys(TL_SRC), res=await Promise.allSettled(ids.map(fetchGame));
   res.forEach((r,i)=>{if(r.status==='fulfilled'&&r.value)latest[ids[i]]=r.value});
   latestFailed=!Object.keys(latest).length;
@@ -540,6 +709,7 @@ async function standalone(){
     const next={}; snap.docs.forEach(d=>{if(d.exists&&GAMES[d.id])next[d.id]=d.data()});
     latest=next; latestFailed=false; renderLatest(); renderPicks();
   },()=>{clearTimeout(timer);latestFailed=!Object.keys(latest).length;renderLatest()});
+  db.doc('stats/all').onSnapshot(d=>{if(d.exists){stats=d.data();renderFreq()}},()=>{});
   // 存號碼要知道是誰（沒登入就不提供）
   let uid=null; try{const user=await window.claude.use('user'); uid=user?await user.id():null}catch(e){}
   if(!uid)return;
@@ -559,7 +729,7 @@ function renderAvoid(){
   $('avoid').checked=avoid&&!off; $('avoid').disabled=off; $('avoidWrap').classList.toggle('off',off);
   $('avoidHint').textContent=off?`${g.name}正彩獎金固定，不會跟別人平分，不需要避開`:'少選生日、連號、規則排列、照抄上一期，萬一中頭獎比較不會跟別人平分（中獎機率不變）';
 }
-function renderRule(){const g=GAMES[cur];$('rule').innerHTML=`<span><b>${g.name}</b></span><span>${g.rule}</span>`;renderAvoid();renderNextDraw();
+function renderRule(){const g=GAMES[cur];$('rule').innerHTML=`<span><b>${g.name}</b></span><span>${g.rule}</span>`;renderAvoid();renderNextDraw();renderWheel();renderFreq();
   $('must').placeholder=g.digits?'例如 7（從第一位開始指定）':'例如 7 18';
   $('odds').innerHTML=g.odds.map(([l,v])=>`<div><small>${l}機率</small><strong>1 / ${v.toLocaleString('en-US')}</strong></div>`).join('')+
     `<div><small>每期買 1 注、連買 1 年（約 104 期）中頭獎的機率</small><strong>約 1 / ${Math.round(g.odds[0][1]/104).toLocaleString('en-US')}</strong></div>`}
@@ -570,6 +740,7 @@ function renderHist(){
 }
 function renderAll(anim){renderTabs();renderRule();run(anim)}
 $('go').onclick=()=>run(true);
+bindWheel();
 $('avoid').onchange=()=>{avoid=$('avoid').checked;store('lucky.avoid',avoid);run(true)};
 $('spread').onchange=()=>{spread=$('spread').checked;store('lucky.spread',spread);run(true)};
 {const sb=store('lucky.budget'); if(Number.isFinite(sb)&&sb>=0)$('budget').value=sb;}
