@@ -176,9 +176,12 @@ body.can-save .save{display:inline-block}
 .rec-set{display:flex;flex-wrap:wrap;align-items:center;gap:4px 6px;padding:8px 10px;background:var(--bg);border-radius:10px}
 .rec-set .why{flex:1 1 100%;font-size:12px;color:var(--muted)}
 .rec-set .pop{font-size:12px;font-weight:700;color:var(--pick)}
-.pop-line{display:block;margin-top:6px;font-size:12px;line-height:1.8}
+#recIntro{display:block;line-height:1.7}
+.pop-line{display:block;margin-top:6px;font-size:12px;line-height:1.6}
 .pop-line b{font-family:var(--f-num)}
-.pop-line .rule{font-size:11px;margin-left:2px}
+.pop-line .chips{display:flex;flex-wrap:wrap;align-items:center;gap:4px;margin-top:6px}
+.pop-line .lbl{min-width:4.5em;color:var(--muted)}
+.pop-line .chip{display:inline-block;padding:2px 8px;border:1px solid var(--line);border-radius:999px;font-family:var(--f-num);white-space:nowrap}
 .lab-log{display:grid;gap:4px;max-height:420px;overflow:auto;font-size:12px}
 .log-row{display:flex;flex-wrap:wrap;align-items:center;gap:3px 5px;padding:6px 8px;background:var(--bg);border-radius:8px}
 .log-row .pd{font-family:var(--f-num);min-width:5.5em;color:var(--muted)}
@@ -1093,9 +1096,9 @@ function recommendSets(id,n){
 }
 function popLine(id){
   const pd=popData(id); if(!pd)return '';
-  const order=pd.w.map((x,i)=>({v:i+1,x})).sort((a,b)=>b.x-a.x), f=o=>`${fmt(o.v,2)}<span class="rule">${o.x>0?'+':''}${Math.round(o.x)}%</span>`;
+  const order=pd.w.map((x,i)=>({v:i+1,x})).sort((a,b)=>b.x-a.x), f=o=>`<span class="chip"><b>${fmt(o.v,2)}</b> ${o.x>0?'+':''}${Math.round(o.x)}%</span>`;
   return `<span class="pop-line">依過去 <b>${pd.draws.toLocaleString('en-US')}</b> 期的銷售注數與中獎人數推算（單雙期分開算一致性 ${pd.consistency.toFixed(2)}，代表是真的偏好）：`+
-    `<br>最多人選：${order.slice(0,6).map(f).join('、')}<br>最少人選：${order.slice(-6).reverse().map(f).join('、')}</span>`;
+    `<span class="chips"><span class="lbl">最多人選</span>${order.slice(0,6).map(f).join('')}</span><span class="chips"><span class="lbl">最少人選</span>${order.slice(-6).reverse().map(f).join('')}</span></span>`;
 }
 function renderRecIntro(){
   const g=GAMES[cur], t=TIERS[cur], p=t.list.reduce((a,x)=>a+x[2],0)/t.total;
