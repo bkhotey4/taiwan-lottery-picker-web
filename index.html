@@ -375,6 +375,14 @@ body.can-save .save{display:inline-block}
     </div>
     <div class="lab-log" id="labLog"></div>
     <p class="money" id="labLogSum"></p>
+    <div id="aiBox" hidden>
+      <h3 class="lab-h">AI 事先存好的預測（每晚自動存、開獎後自動對獎）</h3>
+      <p class="rule" id="aiPending"></p>
+      <div class="lab-preds" id="aiPreds"></div>
+      <div class="cmp-wrap"><table class="cmp lab"><thead><tr><th>方法</th><th>已對獎</th><th>平均猜中</th><th>中獎期數</th><th>花／中（元）</th></tr></thead><tbody id="aiRows"></tbody></table></div>
+      <p class="rule" id="aiNote"></p>
+      <div class="lab-log" id="aiLog"></div>
+    </div>
     <p class="note">「和隨機比」用統計檢定：差距在 ±2 個標準差內代表跟隨機選號沒有分別。同時比很多種方法時，偶爾有一種剛好超過 2 也是正常的運氣。開獎是獨立隨機的，過去的號碼沒有可以學的規律，所以不要期待哪個方法長期贏過隨機。</p>
   </section>
 
@@ -660,11 +668,38 @@ function runLab(id){
     return{...m,avg,pr,z:(avg-expHits)/Math.sqrt(varHits/r.cnt),zp:(pr-pAny)/Math.sqrt(pAny*(1-pAny)/r.cnt),a1:r.h1/r.c1,a2:r.h2/r.c2}});
   return labCache[id]={key,id,draws:N,tested:total,from:draws[LAB_WARM].period,to:lastD.period,expHits,pAny,rows,next,w:w.slice(),log:Object.values(logs).reverse()};
 }
+// ---- AI 事先存好的預測：資料由 Claude 每晚排程（scripts/ai-predict.mjs）寫入 ai/<彩種> ----
+let aiData={};
+function renderAI(){
+  const box=$('aiBox'), a=aiData[cur], g=GAMES[cur];
+  if(!a||typeof a!=='object'||g.digits){box.hidden=true;return}
+  box.hidden=false;
+  const N=v=>Number.isInteger(Number(v))?Number(v):null, nm=id=>(LAB_METHODS.find(m=>m.id===id)||{}).name;
+  const nums=a=>(Array.isArray(a)?a:[]).map(N).filter(v=>v!==null);
+  const when=iso=>{const t=Date.parse(iso);if(!Number.isFinite(t))return '';const d=new Date(t+8*3600e3);return `${d.getUTCMonth()+1}/${d.getUTCDate()} ${String(d.getUTCHours()).padStart(2,'0')}:${String(d.getUTCMinutes()).padStart(2,'0')}`};
+  const pd=a.pending, pp=pd&&Array.isArray(pd.preds)?pd.preds.filter(p=>nm(p.id)):[];
+  $('aiPending').innerHTML=pp.length?`下一期的預測已在 <b>${when(pd.madeAt)}</b> 存好（第 ${N(pd.afterPeriod)%1e6} 期之後的第一期，用了 ${(N(pd.learned)||0).toLocaleString('en-US')} 期資料）。開獎後排程會自動對獎，有結果就通知你。`:'下一期的預測還沒存，排程下次執行時會存。';
+  $('aiPreds').innerHTML=pp.map(p=>`<div class="pr"><span class="mname">${nm(p.id)}</span>${nums(p.z1).map(v=>`<span class="ball sm">${fmt(v,2)}</span>`).join('')}${N(p.z2)?`<span class="sep">＋</span><span class="ball sm z2">${fmt(N(p.z2),2)}</span>`:''}</div>`).join('');
+  const ms=(Array.isArray(a.methods)?a.methods:[]).filter(m=>nm(m.id)), n=ms.length?N(ms[0].n)||0:0, exp=Number(a.expHits)||0, pAny=Number(a.pAny)||0;
+  const money=v=>(N(v)||0).toLocaleString('en-US');
+  $('aiRows').innerHTML=n?`<tr class="base"><td>理論值（隨機）</td><td>${n} 期</td><td>${exp.toFixed(2)}</td><td>約 ${(n*pAny).toFixed(1)}</td><td>—</td></tr>`+
+    ms.map(m=>`<tr><td>${nm(m.id)}</td><td>${N(m.n)} 期</td><td>${(N(m.hits)/Math.max(1,N(m.n))).toFixed(2)}</td><td>${N(m.wins)}</td><td>${money(m.spent)}／${money(m.gained)}</td></tr>`).join('')
+    :'<tr><td colspan="5">還沒有對過獎：第一次對獎在下一期開獎後。</td></tr>';
+  $('aiNote').textContent=`從 ${when(a.since)} 開始記錄。只算「停售（20:00）前就存好」的預測；花／中以每種方法每期買 1 注、官方實際獎金計算。下面列出最近幾期，方法跟上面的選單同步。`;
+  const mid=$('labLogM').value||'ml', log=Array.isArray(a.log)?a.log:[];
+  $('aiLog').innerHTML=log.slice(0,30).map(e=>{const r=e&&e.result; if(!r)return '';
+    const p=(e.preds||[]).find(x=>x.id===mid), sc=(r.scores||[]).find(x=>x.id===mid); if(!p||!sc)return '';
+    const set=new Set(nums(r.nums)), sp=N(r.sp), z2=N(p.z2), prize=typeof sc.prize==='string'&&PRIZE_NAMES.has(sc.prize)?sc.prize:null;
+    return `<div class="log-row"><span class="pd">第 ${N(r.period)%1e6} 期</span><span class="lbl">${when(e.madeAt)} 存</span>`+
+      nums(p.z1).map(v=>`<span class="ball xs${set.has(v)?' hit':''}">${fmt(v,2)}</span>`).join('')+(z2?`<span class="sep">＋</span><span class="ball xs z2${cur==='power'&&z2===sp?' hit':''}">${fmt(z2,2)}</span>`:'')+
+      `<span class="lbl">開</span>${[...set].map(v=>`<span class="num">${fmt(v,2)}</span>`).join(' ')}${sp!==null?` ＋ <span class="num">${fmt(sp,2)}</span>`:''}`+
+      `<span class="res${prize?' win':''}">${r.late?'停售後才存，不計':`中 ${N(sc.k)} 個${sc.spHit?'＋'+(cur==='power'?'第二區':'特別號'):''}${prize?' → '+prize+(N(sc.amt)?' '+money(sc.amt)+' 元':''):''}`}</span></div>`}).join('');
+}
 // 最近每一期：某個方法在開獎前猜的號碼、實際開出、對中幾個
 function renderLabLog(L){
   const sel=$('labLogM'), g=GAMES[L.id];
   if(!sel.options.length){sel.innerHTML=LAB_METHODS.map(m=>`<option value="${m.id}">${m.name}</option>`).join('');sel.value=store('lucky.labm')||'ml';if(!sel.value)sel.value='ml';
-    sel.onchange=()=>{store('lucky.labm',sel.value);const c=labCache[cur];if(c)renderLabLog(c)}}
+    sel.onchange=()=>{store('lucky.labm',sel.value);const c=labCache[cur];if(c)renderLabLog(c);renderAI()}}
   const mid=sel.value, r=latest[L.id], lastDate=r&&String(r.period).replace(/\D/g,'')===L.to?String(r.date).replace(/[^\d-]/g,''):'';
   $('labLearn').innerHTML=`每開一期就自動對獎、再用新結果更新模型。目前已學到 <b>${rocYear(L.to)} 年第 ${Number(L.to)%1e6} 期</b>${lastDate?`（${lastDate}）`:''}，`+
     `共學過 ${L.draws.toLocaleString('en-US')} 期；下一期開獎後打開頁面就會自動多學一期。`;
@@ -702,7 +737,7 @@ function renderLab(){
             :`其他權重裡最大的是「${ML_FEATS[bi]}」（${L.w[bi].toFixed(3)}），模型一直在追逐過去的波動，`)+
     (mlOk?(big<0.1?'實際成績也跟隨機一樣。':'但實際成績跟隨機一樣。'):'成績和隨機有一點差距，但在同時比很多方法時不算顯著。')+
     `學習前半段平均對中 ${ml.a1.toFixed(3)} 個、後半段 ${ml.a2.toFixed(3)} 個（理論值 ${L.expHits.toFixed(3)}），學越久也沒有變準。</p>`;
-  renderLabLog(L);
+  renderLabLog(L); renderAI();
   $('labPreds').innerHTML=L.next.map((p,i)=>`<div class="pr"><span class="mname">${p.name}</span>${p.z1.map(v=>`<span class="ball sm">${fmt(v,2)}</span>`).join('')}${p.z2?`<span class="sep">＋</span><span class="ball sm z2">${fmt(p.z2,2)}</span>`:''}<button type="button" class="ghost save" data-pred="${i}">存這組</button></div>`).join('');
   renderSaveButtons();
 }
@@ -1385,6 +1420,7 @@ async function standalone(){
     latest=next; latestFailed=false; renderLatest(); renderPicks(); renderLab();
   },()=>{clearTimeout(timer);latestFailed=!Object.keys(latest).length;renderLatest()});
   db.doc('stats/all').onSnapshot(d=>{if(d.exists){stats=d.data();renderFreq();renderRecIntro()}},()=>{});
+  ['lotto','power','d539'].forEach(id=>db.doc('ai/'+id).onSnapshot(d=>{aiData[id]=d.exists?d.data():null;if(id===cur)renderAI()},()=>{})); // 每晚排程存的 AI 預測與對獎
   ['lotto','power','d539'].forEach(id=>db.doc('history/'+id).onSnapshot(d=>{if(d.exists){histData[id]=d.data();if(id===cur)renderLab();renderPicks();renderSaveButtons()}},()=>{}));
   // 存號碼要知道是誰（沒登入就不提供）
   let uid=null; try{const user=await window.claude.use('user'); uid=user?await user.id():null}catch(e){}
