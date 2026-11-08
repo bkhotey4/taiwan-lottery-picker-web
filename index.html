@@ -1445,6 +1445,9 @@ async function standalone(){
   const pS=fetch('stats.json',{cache:'no-cache'}).then(r=>r.ok?r.json():null).then(j=>{if(j){stats=j;renderFreq();renderRecIntro()}}).catch(()=>{}); // 和網頁放在一起的歷年統計
   const pH=fetch('history.json',{cache:'no-cache'}).then(r=>r.ok?r.json():null).then(j=>{if(j&&typeof j==='object'){histData=j;renderLab();renderPicks();renderSaveButtons()}}).catch(()=>{}); // 每期號碼（預測實驗室、舊號碼對獎）
   Promise.all([pS,pH]).then(fillHistoryGap);
+  // AI 事先存好的預測：每晚排程推到公開網頁的 ai.json；App 內建檔案沒有，直接讀網站上的
+  const AI_URL=location.protocol==='file:'?'https://bkhotey4.github.io/taiwan-lottery-picker-web/ai.json':'ai.json';
+  fetch(AI_URL,{cache:'no-cache'}).then(r=>r.ok?r.json():null).then(j=>{if(j&&typeof j==='object'){for(const id of ['lotto','power','d539'])if(j[id]&&typeof j[id]==='object')aiData[id]=j[id];renderAI()}}).catch(()=>{});
   const ids=Object.keys(TL_SRC), res=await Promise.allSettled(ids.map(fetchGame));
   res.forEach((r,i)=>{if(r.status==='fulfilled'&&r.value)latest[ids[i]]=r.value});
   latestFailed=!Object.keys(latest).length;
