@@ -185,6 +185,20 @@ body.can-save .save{display:inline-block}
 .pick .status{flex:1 1 100%;color:var(--muted)}
 .pick .status.win{color:var(--accent);font-weight:700}
 .pick .del{margin-left:auto;padding:3px 8px;font-size:12px}
+.picks{max-height:460px;overflow:auto}
+.notify-btn{align-self:flex-start}
+.tools-box{border-top:1px dashed var(--line);padding-top:8px;font-size:13px}
+.tools-box summary{cursor:pointer;font-weight:700;color:var(--muted);padding:6px 0}
+.tools-box[open]>summary{margin-bottom:10px}
+.tools-box .manual,.tools-box .cap{margin-bottom:12px}
+@media (max-width:600px){
+  .ghost{min-height:40px}
+  .pick .del{padding:8px 12px;font-size:13px}
+  .check input{width:22px;height:22px}
+  .jump a{padding:8px 14px}
+  .opts summary,.tools-box summary,.why-box summary,.tiers summary{padding:10px 0}
+  .fold-btn{min-height:40px}
+}
 .money{margin:0;font-size:13px}
 .money:empty{display:none}
 .money b{font-family:var(--f-num)}
@@ -336,46 +350,49 @@ body.can-save .save{display:inline-block}
   <section class="slip" id="picksBox" hidden>
     <div class="row"><h2>我存的號碼</h2><span class="rule" id="picksSum"></span></div>
     <p class="money" id="picksMoney"></p>
-    <div class="row cap">
-      <label class="field">每月花費上限（元）
-        <input id="capIn" type="number" min="0" step="50" inputmode="numeric" placeholder="不設定">
-      </label>
-      <p class="money" id="capLine"></p>
-    </div>
-    <div class="row pick-tools">
-      <div class="tool-btns">
-        <button type="button" class="ghost" id="exportBtn">匯出</button>
-        <button type="button" class="ghost" id="importBtn">匯入</button>
-        <button type="button" class="ghost" id="notifyBtn" hidden>開啟中獎通知</button>
-      </div>
-      <span class="rule" id="toolMsg"></span>
-    </div>
-    <div class="io" id="ioBox" hidden>
-      <label class="field">選擇匯出的檔案
-        <input type="file" id="ioFile" accept=".json,.txt,application/json,text/plain">
-      </label>
-      <label class="field">或貼上匯出的文字
-        <textarea id="ioText" rows="4" spellcheck="false" placeholder='{"app":"lotto-picker", …}'></textarea>
-      </label>
-      <div class="row"><button type="button" class="ghost" id="ioDo">匯入這些號碼</button><button type="button" class="ghost" id="ioClose">關閉</button></div>
-      <p class="msg" id="ioNote"></p>
-    </div>
-    <div class="manual">
-      <div class="controls">
-        <label class="field">彩種
-          <select id="mGame"></select>
-        </label>
-        <label class="field grow">自己買的號碼
-          <input id="mNums" inputmode="numeric" placeholder="例如 3 10 19 27 33 38">
-        </label>
-        <label class="field" id="mZ2Wrap" hidden>第二區
-          <input id="mZ2" inputmode="numeric" placeholder="例如 5" size="4">
-        </label>
-        <button type="button" class="ghost" id="mSave">存起來對獎</button>
-      </div>
-      <p class="msg" id="mMsg"></p>
-    </div>
+    <p class="money" id="capLine"></p>
+    <button type="button" class="ghost notify-btn" id="notifyBtn" hidden>開啟中獎通知</button>
     <div class="picks" id="picks"></div>
+    <details class="tools-box" id="picksTools">
+      <summary>輸入自己買的號碼・匯出／匯入・每月花費上限</summary>
+      <div class="manual">
+        <div class="controls">
+          <label class="field">彩種
+            <select id="mGame"></select>
+          </label>
+          <label class="field grow">自己買的號碼
+            <input id="mNums" inputmode="numeric" placeholder="例如 3 10 19 27 33 38">
+          </label>
+          <label class="field" id="mZ2Wrap" hidden>第二區
+            <input id="mZ2" inputmode="numeric" placeholder="例如 5" size="4">
+          </label>
+          <button type="button" class="ghost" id="mSave">存起來對獎</button>
+        </div>
+        <p class="msg" id="mMsg"></p>
+      </div>
+      <div class="row cap">
+        <label class="field">每月花費上限（元）
+          <input id="capIn" type="number" min="0" step="50" inputmode="numeric" placeholder="不設定">
+        </label>
+      </div>
+      <div class="row pick-tools">
+        <div class="tool-btns">
+          <button type="button" class="ghost" id="exportBtn">匯出</button>
+          <button type="button" class="ghost" id="importBtn">匯入</button>
+        </div>
+        <span class="rule" id="toolMsg"></span>
+      </div>
+      <div class="io" id="ioBox" hidden>
+        <label class="field">選擇匯出的檔案
+          <input type="file" id="ioFile" accept=".json,.txt,application/json,text/plain">
+        </label>
+        <label class="field">或貼上匯出的文字
+          <textarea id="ioText" rows="4" spellcheck="false" placeholder='{"app":"lotto-picker", …}'></textarea>
+        </label>
+        <div class="row"><button type="button" class="ghost" id="ioDo">匯入這些號碼</button><button type="button" class="ghost" id="ioClose">關閉</button></div>
+        <p class="msg" id="ioNote"></p>
+      </div>
+    </details>
     <p class="note" id="picksNote">按號碼旁的「存這組」就會存在你的帳號裡，手機、電腦都看得到。開獎資料更新後，會自動對照存號碼之後的第一期（晚上 8 點後存的，算下一期）。</p>
   </section>
 
@@ -1056,7 +1073,7 @@ function renderPicks(){
     `<b class="${net>=0?'up':'down'}">${net>=0?'賺':'虧'} ${Math.abs(net).toLocaleString('en-US')} 元</b>`+
     (unknown?`（另有 ${unknown} 組中獎但查不到金額，沒算進去）`:'')+'。以每組 1 注、官方每期實際獎金計算，不含稅。':'';
   renderNews(); syncNative(); renderRecScore(); renderCap();
-  $('picks').innerHTML=rows.length?rows.join(''):'<div class="pick"><span class="status">還沒有存號碼。按號碼旁的「存這組」，或在上面輸入自己買的號碼。</span></div>';
+  $('picks').innerHTML=rows.length?rows.join(''):'<div class="pick"><span class="status">還沒有存號碼。按號碼旁的「存這組」，或打開下面的「輸入自己買的號碼」。</span></div>';
 }
 function renderSaveButtons(){
   const saved=pendingKeys();
