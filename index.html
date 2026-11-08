@@ -67,6 +67,13 @@
 [data-style="d"] .go,[data-style="d"] .ghost,[data-style="d"] .odds div,[data-style="d"] .chance-box{border-radius:999px}
 [data-style="d"] .odds div,[data-style="d"] .chance-box{border-radius:18px}
 [data-style="d"] .side-tabs button{border-radius:999px}
+.install-btns{position:relative}
+.gear{font:inherit;font-size:13px;font-weight:700;border:1.5px solid var(--line);background:var(--paper);color:var(--ink);border-radius:999px;padding:7px 12px;cursor:pointer;margin-top:6px}
+.settings{position:absolute;right:0;top:44px;z-index:20;background:var(--paper);border:1.5px solid var(--line);border-radius:12px;padding:12px;box-shadow:0 10px 30px rgba(0,0,0,.18);width:min(300px,calc(100vw - 32px));display:grid;gap:8px}
+.settings .set-h{margin:0;font-size:12px;font-weight:700;color:var(--muted)}
+.settings .style-sw,.settings .theme-sw{display:flex;flex-wrap:wrap;gap:6px;border:0;background:none;overflow:visible;margin:0}
+.settings .style-sw button,.settings .theme-sw button{border:1.5px solid var(--line);border-radius:999px;padding:6px 10px;font-size:13px}
+.settings .style-note{text-align:left}
 .style-sw{display:inline-flex;border:1.5px solid var(--line);border-radius:999px;overflow:hidden;background:var(--paper)}
 .style-sw button{font:inherit;font-size:12px;font-weight:700;border:0;background:none;color:var(--muted);padding:5px 9px;cursor:pointer;white-space:nowrap}
 .style-sw button[aria-pressed="true"]{background:var(--ink);color:var(--paper)}
@@ -113,12 +120,25 @@ button:focus-visible,input:focus-visible,select:focus-visible{outline:3px solid 
 .fold-btn{flex:none;padding:6px 14px;font-size:13px}
 .fold-hint{margin:6px 0 0;font-size:13px;color:var(--muted);cursor:pointer}
 .tagline{margin:4px 0 0;font-size:14px}
+.ball-pop{position:absolute;z-index:40;max-width:280px;background:var(--paper);border:1.5px solid var(--line);border-radius:10px;padding:10px 12px;font-size:13px;line-height:1.6;box-shadow:0 10px 30px rgba(0,0,0,.18)}
+.ball-pop b{font-family:var(--f-num)}
+.ball-pop .rule{font-size:12px}
+#sets .ball,#latestBalls .ball,#todayList .ball,#recOut .ball,#labPreds .ball,#aiPreds .ball,#ckOut .ball{cursor:pointer}
 #nextDraw .upd{color:var(--muted);font-size:12px}
 #nextDraw .warn{color:var(--accent);font-size:12px}
 #labBox.digits .ml-only{display:none}
 .today-list{display:grid;gap:10px;margin-top:8px}
 .win-rate:empty{display:none}
+.hitn{color:var(--accent-ink);background:var(--accent);border-radius:4px;padding:0 3px}
+.report{white-space:pre-wrap;font-family:var(--f-body);font-size:13px;background:var(--bg);border:1.5px dashed var(--line);border-radius:8px;padding:10px;margin:0}
 .rs-list{display:grid;gap:8px;font-size:13px}
+.life-bars{display:grid;gap:10px}
+.life-head{display:flex;justify-content:space-between;flex-wrap:wrap;gap:4px 8px;font-size:13px}
+.life-head span{color:var(--muted);font-size:12px}
+.life-row .bar{height:12px;border-radius:999px;background:var(--line);overflow:hidden;margin-top:4px}
+.life-row .bar i{display:block;height:100%;background:var(--accent)}
+.life-p{font-size:13px;margin-top:2px}.life-p b{font-family:var(--f-num)}
+#lifeYears{width:100%}
 .sc-list{display:grid;gap:8px}
 body:not(.mode-scratch) #scratchBox{display:none}
 body.mode-scratch .col-main>*:not(#scratchBox):not(header):not(.tabs):not(.news),body.mode-scratch .col-side,body.mode-scratch .jump{display:none!important}
@@ -132,6 +152,18 @@ body.mode-scratch .col-main{position:static;max-height:none;overflow:visible}
 .sc-head span{color:var(--accent);font-weight:700;font-family:var(--f-num)}
 .sc-stats{display:flex;flex-wrap:wrap;gap:4px 14px;margin-top:6px;font-size:12px;color:var(--muted)}
 .sc-stats b{color:var(--ink);font-family:var(--f-num)}
+.sc-light{display:flex;flex-wrap:wrap;align-items:center;gap:4px 8px;margin-top:6px;font-size:12px}
+.sc-light i{width:10px;height:10px;border-radius:50%;background:#e0b400;flex:none}
+.sc-light.red i{background:var(--accent)}.sc-light.green i{background:#1f9d55}.sc-light.gray i{background:var(--line)}
+.sc-light.red b{color:var(--accent)}.sc-light.green b{color:#1f9d55}
+.sc-light span{color:var(--muted)}.sc-light em{font-style:normal;font-family:var(--f-num);color:var(--muted);margin-left:auto}
+.sc-red{opacity:.7}
+.sc-bars{display:grid;gap:4px;margin-top:6px;font-size:12px}
+.sc-bars>div{display:grid;grid-template-columns:4.5em 1fr 3em;align-items:center;gap:6px;color:var(--muted)}
+.sc-bars b{font-family:var(--f-num);color:var(--ink);text-align:right}
+.sc-bars .bar{height:8px;border-radius:999px;background:var(--line);overflow:hidden}
+.sc-bars .bar i{display:block;height:100%;background:var(--muted)}
+.sc-bars .bar.jp i{background:var(--accent)}
 .rs-item{padding:8px 10px;background:var(--bg);border-radius:8px;line-height:1.6}
 .rs-item a{color:var(--pick)}
 .win-rate .rule{display:block;margin-top:4px;font-size:12px}
@@ -245,6 +277,15 @@ h2{font-size:15px;margin:0;letter-spacing:.04em}
 .col-side[data-tab="pick"]>section[data-tab]:not([data-tab="pick"]),
 .col-side[data-tab="mine"]>section[data-tab]:not([data-tab="mine"]),
 .col-side[data-tab="ana"]>section[data-tab]:not([data-tab="ana"]){display:none}
+.bottom-nav{display:none}
+@media (max-width:959px){
+  .jump{display:none!important}
+  .bottom-nav{display:flex;position:fixed;left:0;right:0;bottom:0;z-index:30;background:var(--paper);border-top:1.5px solid var(--line);padding:6px max(8px,env(safe-area-inset-left,0px)) calc(6px + env(safe-area-inset-bottom,0px));gap:4px}
+  .bottom-nav button{flex:1;font:inherit;font-size:12px;font-weight:700;border:0;background:none;color:var(--muted);padding:8px 2px;border-radius:10px;cursor:pointer;min-height:44px}
+  .bottom-nav button[aria-current="true"]{background:var(--ink);color:var(--paper)}
+  body{padding-bottom:84px}
+}
+[data-style="b"] .bottom-nav button[aria-current="true"]{background:var(--accent);color:var(--accent-ink)}
 .jump a[aria-current="true"]{background:var(--ink);color:var(--paper);border-color:var(--ink)}
 .empty-tab{font-size:13px;color:var(--muted);margin:0}
 @media (min-width:960px){.side-tabs{position:sticky;top:0;z-index:4;padding-top:8px;margin-top:-8px}.jump{display:none}}
@@ -395,13 +436,18 @@ body.can-save .save{display:inline-block}
         <p>台灣彩券隨機選號，自己玩的娛樂工具</p>
       </div>
       <div class="install-btns">
-        <div class="style-sw" role="group" aria-label="版面風格">
-          <button type="button" data-style="o" title="原本的樣式">原本</button><button type="button" data-style="a" title="A 簡約白">A</button><button type="button" data-style="b" title="B 彩券行">B</button><button type="button" data-style="c" title="C 夜光霓虹">C</button><button type="button" data-style="d" title="D 柔和圓潤">D</button>
-        </div>
-        <p class="style-note" id="styleNote"></p>
-        <p class="style-note" id="appVer"></p>
-        <div class="theme-sw" role="group" aria-label="外觀">
-          <button type="button" data-theme="auto">自動</button><button type="button" data-theme="light">亮色</button><button type="button" data-theme="dark">暗色</button>
+        <button type="button" class="gear" id="gearBtn" aria-expanded="false" aria-controls="settingsPanel">⚙ 設定</button>
+        <div class="settings" id="settingsPanel" hidden>
+          <p class="set-h">版面風格</p>
+          <div class="style-sw" role="group" aria-label="版面風格">
+            <button type="button" data-style="b">傳統彩券行</button><button type="button" data-style="a">極簡紙質白</button><button type="button" data-style="c">賽博霓虹</button><button type="button" data-style="d">柔和圓潤</button><button type="button" data-style="o">經典簡約</button>
+          </div>
+          <p class="set-h">外觀</p>
+          <div class="theme-sw" role="group" aria-label="外觀">
+            <button type="button" data-theme="auto">跟著系統</button><button type="button" data-theme="light">亮色</button><button type="button" data-theme="dark">暗色</button>
+          </div>
+          <p class="style-note" id="styleNote"></p>
+          <p class="style-note" id="appVer"></p>
         </div>
         <button type="button" class="install" id="installBtn" hidden>安裝 App</button>
         <a class="install alt" id="apkBtn" hidden href="https://github.com/bkhotey4/taiwan-lottery-picker-web/releases/latest/download/lotto-picker.apk">下載 Android App</a>
@@ -420,6 +466,10 @@ body.can-save .save{display:inline-block}
     <a href="#sideTabs" data-tab="ana">分析工具</a>
   </nav>
 
+  <nav class="bottom-nav" id="bottomNav" aria-label="主要功能">
+    <button type="button" data-go="main">選號</button><button type="button" data-go="pick">預測</button><button type="button" data-go="mine">我的號碼</button><button type="button" data-go="ana">分析</button><button type="button" data-go="scratch">刮刮樂</button>
+  </nav>
+  <div class="ball-pop" id="ballPop" hidden role="dialog" aria-label="號碼資訊"></div>
   <div class="news intro" id="introBar" hidden role="note">
     <span><b>第一次用？</b>① 上面選彩種 → ② 按「重新選號」（預設用統計模型每期計算；也可以改成「中獎機率最大」或「純隨機」）→ ③ 喜歡就按「存這組」，開獎後自動對獎。其他功能在「挑號碼」「我的號碼」「分析工具」分頁裡。</span>
     <span class="news-btns"><button type="button" class="ghost" id="introOk">知道了</button></span>
@@ -435,7 +485,7 @@ body.can-save .save{display:inline-block}
     <p class="rule">每一張中不中，印刷時就決定了，外觀看不出來，所以沒辦法挑「哪一張」。但不同「款式」的條件不一樣，這裡用台彩即時資料比較。</p>
     <div class="controls">
       <label class="field">排序
-        <select id="scSort"><option value="win">中獎率高到低</option><option value="jp">頭獎機率高到低</option><option value="ret">頭獎平均拿回多到少</option><option value="remain">頭獎剩下比例高到低</option><option value="down">快下市的先</option></select>
+        <select id="scSort"><option value="win">中獎率高到低</option><option value="jp">頭獎機率高到低</option><option value="ret">頭獎平均拿回多到少</option><option value="down">快下市的先</option></select>
       </label>
       <label class="field">售價
         <select id="scPrice"><option value="">全部</option><option>100</option><option>200</option><option>300</option><option>500</option><option value="1000">1000 以上</option></select>
@@ -443,7 +493,7 @@ body.can-save .save{display:inline-block}
       <button type="button" class="ghost" id="scReload">重新整理</button>
     </div>
     <div class="sc-list" id="scList"><p class="rule">載入中…</p></div>
-    <p class="note">中獎率是台彩公布的「中任何獎」比例，包含拿回比售價少的小獎，不等於賺錢的機率。頭獎「已兌領」是到銀行兌獎的張數（中了還沒去領的不會算進去），所以「剩下」可能比實際多；台彩在銷售期間不公布銷售進度，剩下的頭獎沒辦法換算成每一張的機率。「頭獎平均拿回」＝頭獎金額 × 張數 ÷ 發行張數，只算頭獎、不含其他獎項。</p>
+    <p class="note"><b>為什麼沒有「頭獎還剩幾張」：</b>台彩在銷售期間不公布頭獎兌領狀況和賣了幾張，下市後才公布（2026/11 檢查：銷售中 24 款全部沒有兌領紀錄，已下市 36 款全部有）。所以沒辦法判斷哪一款「大獎還很多」，網路上的「獵殺指數」在銷售中其實算不出來。中獎率是台彩公布的「中任何獎」比例，包含拿回比售價少的小獎，不等於賺錢的機率。「頭獎平均拿回」＝頭獎金額 × 張數 ÷ 發行張數，只算頭獎、不含其他獎項。</p>
   </section>
 
   <section class="slip" id="main" aria-live="polite">
@@ -563,6 +613,8 @@ body.can-save .save{display:inline-block}
     <p class="money" id="picksMoney"></p>
     <p class="money" id="capLine"></p>
     <div class="win-rate" id="winRate"></div>
+    <div class="row"><button type="button" class="ghost" id="reportBtn" hidden>產生最近一期戰報</button><span class="rule" id="reportMsg"></span></div>
+    <pre class="report" id="reportOut" hidden></pre>
     <button type="button" class="ghost notify-btn" id="notifyBtn" hidden>開啟中獎通知</button>
     <div class="picks" id="picks"></div>
     <details class="tools-box" id="picksTools">
@@ -640,6 +692,17 @@ body.can-save .save{display:inline-block}
     <p class="note">z＝跟隨機選號差幾個標準差。「和隨機比」用統計檢定：差距在 ±2 個標準差內代表跟隨機選號沒有分別。同時比很多種方法時，偶爾有一種剛好超過 2 也是正常的運氣。開獎是獨立隨機的，過去的號碼沒有可以學的規律，所以不要期待哪個方法長期贏過隨機。</p>
   </section>
 
+
+  <section class="slip" id="lifeBox" data-tab="ana" aria-label="有生之年命中率">
+    <div class="row"><h2>有生之年命中率</h2><span class="rule">每週花多少、買幾年</span></div>
+    <div class="controls">
+      <label class="field">每週預算（元）<input id="lifeBudget" type="number" min="50" step="50" value="100" inputmode="numeric"></label>
+      <label class="field grow">連續買 <b id="lifeYearsTxt">10</b> 年<input id="lifeYears" type="range" min="1" max="50" value="10"></label>
+    </div>
+    <div class="life-bars" id="lifeOut"></div>
+    <p class="freq-sum" id="lifeSum"></p>
+    <p class="note">每週預算全部買同一種彩券；機率＝1 −（1 − 每注頭獎機率）^ 總注數。頭獎金額差很多（539 每注 800 萬、大樂透／威力彩上億且會累積），這裡只比「中過頭獎」的機會。</p>
+  </section>
 
   <section class="slip" id="researchBox" data-tab="ana" aria-label="學界研究與檢定">
     <div class="row"><h2>學界研究與檢定</h2><span class="rule" id="rsMeta"></span></div>
@@ -1584,7 +1647,9 @@ function renderPicks(){
     }
     else{if(st.state==='pending'){pendN++;pendCost+=PRICE[p.game]}
       status=st.state==='pending'?`等開獎：${nextDrawOf(p.game)?nextDrawOf(p.game).text+' 開獎後自動對獎':'下一期開獎後自動對獎'}（${PRICE[p.game]} 元）`:st.state==='expired'?'已超過可對獎的期數':'還沒有開獎資料';}
-    const nums=g.digits?p.z1.join(''):p.z1.map(v=>fmt(v,2)).join(' ')+(p.z2.length?' ＋ '+p.z2.map(v=>fmt(v,2)).join(' '):'');
+    const dn=st.state==='drawn'?st.draw.numbers:null, sp=st.state==='drawn'?st.draw.special:null;
+    const hl=(txt,on)=>on?`<b class="hitn">${txt}</b>`:txt;
+    const nums=g.digits?p.z1.map((v,j)=>hl(v,dn&&dn[j]===v)).join(''):p.z1.map(v=>hl(fmt(v,2),dn&&dn.includes(v))).join(' ')+(p.z2.length?' ＋ '+p.z2.map(v=>hl(fmt(v,2),p.game==='power'&&dn&&v===sp)).join(' '):'');
     const sv=taipei(p.createdAt);
     return `<div class="pick"><span class="gname">${g.name}</span><span class="nums">${nums}</span><span class="rule">${sv.date.slice(5).replace('-','/')} 存${p.src&&PICK_SRC[p.src]?' · '+PICK_SRC[p.src]:''}</span>`+
       `<button type="button" class="ghost del" data-id="${p.id}">刪除</button><span class="status${win?' win':''}">${status}</span></div>`;
@@ -1596,6 +1661,7 @@ function renderPicks(){
     (unknown?`（另有 ${unknown} 組中獎但查不到金額，沒算進去）`:'')+'。以每組 1 注、官方每期實際獎金計算，不含稅。':'';
   if(pendN)$('picksMoney').innerHTML=`<span class="pend">等開獎 <b>${pendN}</b> 組，要花 <b>${pendCost.toLocaleString('en-US')}</b> 元；開獎後會自動對獎、算出中多少。</span>`+($('picksMoney').innerHTML?'<br>'+$('picksMoney').innerHTML:'');
   renderNews(); syncNative(); renderRecScore(); renderCap(); renderWinRate();
+  $('reportBtn').hidden=!picks.some(x=>{const st=drawForPick(x);return st.state==='drawn'&&st.draw.date});
   $('picks').innerHTML=rows.length?rows.join(''):'<div class="pick"><span class="status">還沒有存號碼。按號碼旁的「存這組」，或打開下面的「輸入自己買的號碼」。</span></div>';
 }
 // ---- 我的勝率：依號碼來源統計已開獎的中獎率，跟理論值比 ----
@@ -1850,7 +1916,7 @@ async function renderToday(){ // 一次算一種彩券，算完先顯示再讓�
     const wts=L.hw?Object.entries(L.hw).sort((a,b)=>b[1]-a[1]).slice(0,3).map(([k,v])=>`${short[k]||k} ${Math.round(v*100)}%`).join('、'):'';
     const a=aiData[id], am=a&&Array.isArray(a.methods)?a.methods.find(x=>x.id==='hedge'):null;
     const rec=am&&Number(am.n)>0?`事先存證：已對獎 ${am.n} 期，平均對中 ${(am.hits/am.n).toFixed(2)} ${unit}（隨機 ${Number(a.expHits).toFixed(2)}）`:'每晚排程會在開獎前存下這組，開獎後自動對獎累積成績';
-    rows.push(`<div class="today-row"><div class="today-head"><b>${g.name}</b><span>${nd?nd.text+' 開獎':''}</span></div>`+
+    rows.push(`<div class="today-row" data-game="${id}"><div class="today-head"><b>${g.name}</b><span>${nd?nd.text+' 開獎':''}</span></div>`+
       `<div class="set">${p.z1.map(v=>`<span class="ball sm">${g.digits?v:fmt(v,2)}</span>`).join('')}${p.z2?`<span class="sep">＋</span><span class="ball sm z2">${fmt(p.z2,2)}</span>`:''}`+
       `<button type="button" class="ghost save" data-today="${id}">存這組</button></div>`+
       `<p class="rule">學到 ${rocYear(L.to)} 年第 ${Number(L.to)%1e6} 期（共 ${L.draws.toLocaleString('en-US')} 期）· 目前權重最高：${wts}</p>`+
@@ -1935,13 +2001,8 @@ async function loadScratch(force){
       id:String(x.scratchId).replace(/[^\w]/g,''),name:String(x.scratchName).slice(0,30),price:Number(x.money)||0,top:Number(x.firstPrize)||0,issued:Number(x.issuedCount)||0,
       total:Number(x.total_prize)||0,win:odds[x.scratchId]?Number(odds[x.scratchId].oddsOfWinning)||null:null,
       list:String(x.listingDate).slice(0,10),down:String(x.downDate).slice(0,10)}));
-    // 先顯示清單，已兌領頭獎（兌領地點的筆數）陸續補上，同時最多 8 個請求
-    const old={}; (scData&&scData.games||[]).forEach(g=>{old[g.id]=g.claimed});
-    games.forEach(g=>{g.claimed=old[g.id]??null});
-    scData={at:Date.now(),games}; renderScratch();
-    let i=0, done=0; await Promise.all(Array.from({length:8},async()=>{while(i<games.length){const g=games[i++];
-      try{const c=await get('/Instant/RedemptionLocation?ScratchId='+g.id);g.claimed=c&&Array.isArray(c.locations)?c.locations.length:g.claimed}catch(e){}
-      if(++done%6===0)renderScratch()}}));
+    // 銷售中的款式，台彩不公布頭獎兌領與剩餘張數（下市後才公布；2026/11 檢查：24 款銷售中全部沒有兌領紀錄、36 款已下市全部有），所以不抓
+    scData={at:Date.now(),games};
     store('lucky.scratch',scData);
   }catch(e){box.innerHTML='<p class="rule">暫時讀不到台彩的刮刮樂資料，稍後按「重新整理」再試。</p>';scLoading=false;return}
   scLoading=false; renderScratch();
@@ -1951,20 +2012,79 @@ function renderScratch(){
   const pf=$('scPrice').value, sort=$('scSort').value, today=Date.now();
   let gs=scData.games.map(g=>{const remain=g.claimed==null?null:Math.max(0,g.total-g.claimed);
     const span=(Date.parse(g.down)-Date.parse(g.list))/864e5, done=Math.max(0,Math.min(1,(today-Date.parse(g.list))/(Date.parse(g.down)-Date.parse(g.list))));
-    return{...g,remain,jpOdds:g.issued/g.total,ret:g.top*g.total/g.issued/g.price*100,days:Math.round(span),done}});
+    const claimProg=g.claimed==null?null:Math.min(1,g.claimed/g.total), idx=claimProg==null||done>=0.98?null:(1-claimProg)/(1-done);
+    // 燈號：頭獎全兌領＝紅（中頭獎機率確定是 0）；銷售過三成、頭獎消耗明顯比時間慢＝綠（參考）；其他＝黃
+    const light=g.claimed==null?'gray':remain===0?'red':(idx!=null&&done>=0.3&&idx>=1.5)?'green':'yellow';
+    return{...g,remain,jpOdds:g.issued/g.total,ret:g.top*g.total/g.issued/g.price*100,days:Math.round(span),done,claimProg,idx,light}});
   if(pf)gs=gs.filter(g=>pf==='1000'?g.price>=1000:g.price===Number(pf));
-  const key={win:g=>-(g.win||0),jp:g=>g.jpOdds,ret:g=>-g.ret,remain:g=>-(g.remain==null?-1:g.remain/g.total),down:g=>Date.parse(g.down)}[sort];
+  const key={radar:g=>g.light==='red'?1e9:g.light==='gray'?1e8:-(g.idx||0),win:g=>-(g.win||0),jp:g=>g.jpOdds,ret:g=>-g.ret,remain:g=>-(g.remain==null?-1:g.remain/g.total),down:g=>Date.parse(g.down)}[sort];
   gs.sort((a,b)=>key(a)-key(b));
   $('scMeta').textContent=`${scData.games.length} 款 · ${new Date(scData.at+8*3600e3).toISOString().slice(11,16)} 更新`;
   box.innerHTML=gs.length?gs.map(g=>`<div class="sc-row"><div class="sc-head"><b>${g.name}</b><span>${g.price} 元</span></div>`+
+    `<div class="sc-bars"><div><span>銷售時間</span><div class="bar"><i style="width:${Math.round(g.done*100)}%"></i></div><b>${Math.round(g.done*100)}%</b></div></div>`+
     `<div class="sc-stats"><span>中獎率 <b>${g.win!=null?g.win.toFixed(1)+'%':'—'}</b></span><span>頭獎 <b>${money(g.top)}</b> × ${g.total} 張</span>`+
     `<span>每張中頭獎 <b>1 / ${Math.round(g.jpOdds).toLocaleString('en-US')}</b></span><span>頭獎平均拿回 <b>${g.ret.toFixed(1)} 元</b>／每 100 元</span>`+
-    `<span>頭獎已兌領 <b>${g.claimed==null?'—':g.claimed}</b>，還沒兌領 <b>${g.remain==null?'—':g.remain}</b> 張</span>`+
     `<span>上市 ${g.list.slice(5).replace('-','/')}～${g.down.slice(5).replace('-','/')} 下市（已過 ${Math.round(g.done*100)}%）</span></div></div>`).join('')
     :'<p class="rule">這個售價目前沒有銷售中的款式。</p>';
 }
 function bindScratch(){
   $('scSort').onchange=renderScratch; $('scPrice').onchange=renderScratch; $('scReload').onclick=()=>loadScratch(true);
+}
+// ---- 有生之年命中率：每週預算、年數 → 各彩種中過頭獎的機率 ----
+function renderLife(){
+  const b=Math.max(0,Math.floor(Number($('lifeBudget').value)||0)), y=+$('lifeYears').value; $('lifeYearsTxt').textContent=y;
+  const rows=['d539','lotto','power'].map(id=>{const t=TIERS[id],p=t.list[0][2]/t.total,k=Math.floor(b/PRICE[id]),n=k*52*y;return{id,k,n,p:1-Math.pow(1-p,n),cost:n*PRICE[id]}});
+  const mx=Math.max(...rows.map(r=>r.p),1e-12);
+  $('lifeOut').innerHTML=rows.map(r=>`<div class="life-row"><div class="life-head"><b>${GAMES[r.id].name}</b><span>每週 ${r.k} 注 · 共 ${r.n.toLocaleString('en-US')} 注 · 花 ${r.cost.toLocaleString('en-US')} 元</span></div>`+
+    `<div class="bar"><i style="width:${(r.p/mx*100).toFixed(1)}%"></i></div><div class="life-p"><b>${pct(r.p)}</b>${r.p>0?`（約 ${oneIn(r.p)}）`:''}</div></div>`).join('');
+  const [a,,c]=rows; $('lifeSum').innerHTML=b<50?'每週預算至少 50 元。':
+    `同樣的錢買 ${y} 年：今彩539 中過頭獎的機會是威力彩的 <b>${c.p>0?(a.p/c.p).toFixed(0):'—'} 倍</b>（每注機率差 38 倍，539 一注又便宜一半）。`+
+    (a.p<0.01?`但就算是 539，${y} 年也只有 ${pct(a.p)}，大多數人一輩子都不會中頭獎。`:'');
+}
+function bindLife(){$('lifeBudget').addEventListener('input',renderLife);$('lifeYears').addEventListener('input',renderLife);renderLife()}
+// ---- 號碼球點擊即查：歷年開出次數、幾期沒開、熱門程度 ----
+function numberStats(id,v,z2){
+  const ds=labDraws(id); if(!ds)return null; const g=GAMES[id]; let cnt=0,gap=null;
+  for(let i=ds.length-1;i>=0;i--){const hit=z2?ds[i].sp===v:ds[i].nums.includes(v);if(hit){cnt++;if(gap===null)gap=ds.length-1-i}}
+  const exp=z2?ds.length/(id==='power'?8:g.z1.max):ds.length*g.z1.n/g.z1.max;
+  const pd=!z2&&popData(id); return{cnt,exp,gap,N:ds.length,pop:pd?pd.w[v-1]:null};
+}
+document.addEventListener('click',e=>{
+  const pop=$('ballPop'), ball=e.target.closest('#sets .ball,#latestBalls .ball,#todayList .ball,#recOut .ball,#labPreds .ball,#aiPreds .ball,#ckOut .ball');
+  if(!ball){if(!e.target.closest('#ballPop'))pop.hidden=true;return}
+  const row=ball.closest('[data-game]'), id=row?row.dataset.game:cur, g=GAMES[id]; if(g.digits){pop.hidden=true;return}
+  const v=parseInt(ball.textContent,10), z2=ball.classList.contains('z2'); if(!Number.isInteger(v))return;
+  const st=numberStats(id,v,z2); if(!st){pop.hidden=true;return}
+  const label=z2?(id==='power'?'第二區':'特別號'):'';
+  pop.innerHTML=`<b>${g.name} ${label}${fmt(v,2)} 號</b><br>歷年開出 <b>${st.cnt.toLocaleString('en-US')}</b> 次（理論約 ${Math.round(st.exp)} 次，共 ${st.N.toLocaleString('en-US')} 期）<br>`+
+    `${st.gap===0?'上一期剛開出':st.gap==null?'從沒開過':`已經 <b>${st.gap}</b> 期沒開`}`+(st.pop!=null?`<br>熱門程度：選的人比平均${st.pop>=0?'多':'少'} ${Math.abs(Math.round(st.pop))}%`:'')+
+    `<br><span class="rule">開出次數和遺漏期數都不會影響下一期的機率。</span>`+
+    (!z2&&id===cur&&ball.closest('#sets,#latestBalls,#todayList')?`<div class="row"><button type="button" class="ghost" id="popMust">設為必選號碼</button></div>`:'');
+  const r=ball.getBoundingClientRect(); pop.hidden=false;
+  pop.style.left=Math.max(8,Math.min(window.innerWidth-pop.offsetWidth-8,r.left+r.width/2-pop.offsetWidth/2))+'px';
+  pop.style.top=(r.bottom+window.scrollY+8)+'px';
+  const mb=$('popMust'); if(mb)mb.onclick=()=>{const cur2=parseMust(GAMES[cur]).list||[];if(!cur2.includes(v))$('must').value=[...cur2,v].map(x=>fmt(x,2)).join(' ');
+    if(target==='stat'){target='max';store('lucky.target',target);$('target').value='max';renderAvoid()}
+    pop.hidden=true;$('must').scrollIntoView({block:'center'});$('msg').textContent=`已把 ${fmt(v,2)} 設為必選號碼，按「重新選號」產生`};
+});
+// ---- 最近一期戰報：最近一個開獎日，存的號碼花多少、中多少 ----
+function buildReport(){
+  const drawn=picks.map(p=>({p,st:drawForPick(p)})).filter(x=>x.st.state==='drawn'&&x.st.draw.date);
+  if(!drawn.length)return null;
+  const day=drawn.map(x=>x.st.draw.date).sort().pop(), list=drawn.filter(x=>x.st.draw.date===day);
+  const by={}; list.forEach(x=>{const k=x.p.game+'|'+x.st.draw.period;(by[k]||(by[k]={game:x.p.game,period:x.st.draw.period,n:0,cost:0,wins:[],gain:0})).n++;
+    const b=by[k]; b.cost+=PRICE[x.p.game]; const m=matchSet(x.p.game,{z1:x.p.z1,z2:x.p.z2},x.st.draw);
+    if(m.prize){const a=x.st.draw.prizes&&x.st.draw.prizes[m.prize];b.wins.push(m.prize+(Number.isFinite(a)?' '+a.toLocaleString('en-US')+' 元':''));if(Number.isFinite(a))b.gain+=a}});
+  const groups=Object.values(by); let cost=0,gain=0,n=0;
+  const lines=groups.map(b=>{cost+=b.cost;gain+=b.gain;n+=b.n;return `${GAMES[b.game].name} 第 ${Number(b.period)%1e6} 期：${b.n} 注花 ${b.cost.toLocaleString('en-US')} 元，`+(b.wins.length?`中 ${b.wins.length} 注（${b.wins.join('、')}）`:'沒中')});
+  const net=gain-cost;
+  return `【彩券號碼機戰報】${day.slice(5).replace('-','/')}\n`+lines.join('\n')+`\n合計：${n} 注花 ${cost.toLocaleString('en-US')} 元，中 ${gain.toLocaleString('en-US')} 元，${net>=0?'賺':'虧'} ${Math.abs(net).toLocaleString('en-US')} 元`+
+    (cost?`（拿回 ${Math.round(gain/cost*100)}%）`:'')+`\n（獎金未扣稅；彩券有賺有賠，量力而為）`;
+}
+function bindReport(){
+  $('reportBtn').onclick=async()=>{const t=buildReport(); if(!t)return; $('reportOut').hidden=false; $('reportOut').textContent=t;
+    try{if(navigator.share&&matchMedia('(max-width:959px)').matches){await navigator.share({text:t});$('reportMsg').textContent='已開啟分享'}
+      else{await navigator.clipboard.writeText(t);$('reportMsg').textContent='已複製，可以貼到 LINE'}}catch(e){$('reportMsg').textContent='可以直接選取下面的文字複製'}};
 }
 // ---- 查某一期開獎：每個彩種都有 2007 年以來的每一期 ----
 function allDraws(id){ // 舊→新：{period,date,numbers,special,prizes}
@@ -2423,7 +2543,7 @@ $('go').onclick=()=>run(true);
 bindWheel();
 bindLab();
 bindManual();
-bindIO(); bindCap(); bindSim(); bindCheck(); bindTarget(); bindScratch();
+bindIO(); bindCap(); bindSim(); bindCheck(); bindTarget(); bindScratch(); bindLife(); bindReport();
 $('recGo').onclick=doRecommend;
 renderRecTag();
 // ---- 可安裝的 App（https 網頁才能安裝；App 內建頁面是 file:） ----
@@ -2451,7 +2571,7 @@ if(location.protocol==='https:'){
 }
 // 跳轉按鈕：對應區塊隱藏時（例如 3星彩沒有包牌）按鈕也跟著藏起來
 // ---- 比較少用的區塊預設收合，只顯示標題和一句說明（展開狀態記在這台裝置） ----
-const FOLD={researchBox:'學術研究用過的隨機性檢定，套在全部歷年＋最新開獎上自動重算；附相關論文',labBox:'13 種預測方法（含貝氏、馬可夫鏈等數學模型）的回測、最近每一期的比對、AI 事先存好的預測',wheelBox:'輸入 7–16 個號碼，算包牌要幾注、花多少、中獎機率',budgetBox:'同樣的錢買不同彩種，哪個比較容易中',checkBox:'輸入自己的號碼：歷年會中幾次、多少人選、萬一中頭獎實拿多少；也能查某一期開了什麼',simBox:'每期買幾注、連買幾年，模擬 2,000 個人最後賺賠的分布',freqBox:'每個號碼歷年開出幾次，跟公平抽球比較'};
+const FOLD={lifeBox:'每週花多少、買幾年：539、大樂透、威力彩中過頭獎的機率差多少',researchBox:'學術研究用過的隨機性檢定，套在全部歷年＋最新開獎上自動重算；附相關論文',labBox:'13 種預測方法（含貝氏、馬可夫鏈等數學模型）的回測、最近每一期的比對、AI 事先存好的預測',wheelBox:'輸入 7–16 個號碼，算包牌要幾注、花多少、中獎機率',budgetBox:'同樣的錢買不同彩種，哪個比較容易中',checkBox:'輸入自己的號碼：歷年會中幾次、多少人選、萬一中頭獎實拿多少；也能查某一期開了什麼',simBox:'每期買幾注、連買幾年，模擬 2,000 個人最後賺賠的分布',freqBox:'每個號碼歷年開出幾次，跟公平抽球比較'};
 function bindFold(){
   let open=store('lucky.fold'); if(!open||typeof open!=='object')open={};
   for(const [id,hint] of Object.entries(FOLD)){
@@ -2499,6 +2619,15 @@ $('clear').onclick=()=>{hist=[];store('lucky.hist',hist);renderHist()};
 $('copy').onclick=async()=>{const g=GAMES[cur];const txt=`${g.name}\n`+last.map((s,i)=>`${i+1}. ${asText(g,s)}`).join('\n');
   try{await navigator.clipboard.writeText(txt);$('copied').textContent='已複製'}catch(e){$('copied').textContent='無法自動複製，請手動選取號碼'}};
 if(matchMedia('(min-width:960px)').matches)$('chanceMore').open=true; // 電腦版預設展開明細
+// ---- 手機底部導航：選號／預測／我的號碼／分析／刮刮樂 ----
+function navActive(k){document.querySelectorAll('#bottomNav button').forEach(b=>b.setAttribute('aria-current',String(b.dataset.go===k)))}
+document.querySelectorAll('#bottomNav button').forEach(b=>b.onclick=()=>{const k=b.dataset.go;
+  if(k==='scratch'){setScratchMode(true);window.scrollTo({top:0});navActive(k);return}
+  if(scratchMode)setScratchMode(false);
+  if(k==='main'){window.scrollTo({top:0});navActive(k);return}
+  showTab(k,true); navActive(k);
+});
+navActive(scratchMode?'scratch':'main');
 // ---- 外觀：自動（跟著系統）／亮色／暗色，記在這台裝置 ----
 function setTheme(t){
   if(t==='light'||t==='dark')document.documentElement.dataset.theme=t; else delete document.documentElement.dataset.theme;
@@ -2508,18 +2637,20 @@ function setTheme(t){
 }
 document.querySelectorAll('.theme-sw button').forEach(b=>b.onclick=()=>setTheme(b.dataset.theme));
 // ---- 版面風格：原本／A 簡約白／B 彩券行／C 夜光霓虹／D 柔和圓潤（記在這台裝置） ----
-const STYLE_NAMES={o:'原本',a:'A 簡約白',b:'B 彩券行',c:'C 夜光霓虹',d:'D 柔和圓潤'};
+const STYLE_NAMES={o:'經典簡約',a:'極簡紙質白',b:'傳統彩券行',c:'賽博霓虹',d:'柔和圓潤'};
 function setStyle(v){
   if(!STYLE_NAMES[v])v='o';
   if(v==='o')delete document.documentElement.dataset.style; else document.documentElement.dataset.style=v;
   store('lucky.style',v);
   document.querySelectorAll('.style-sw button').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.style===v)));
-  $('styleNote').textContent='風格：'+STYLE_NAMES[v];
+  $('styleNote').textContent='目前：'+STYLE_NAMES[v];
 }
 document.querySelectorAll('.style-sw button').forEach(b=>b.onclick=()=>setStyle(b.dataset.style));
 setStyle(store('lucky.style')||'b'); // 預設風格：B 彩券行
-const APP_VER='4.1'; // 每次發布跟 android/build.sh 的 VERSION_NAME 一起改
+const APP_VER='4.2'; // 每次發布跟 android/build.sh 的 VERSION_NAME 一起改
 $('appVer').textContent='版本 '+APP_VER;
+$('gearBtn').onclick=e=>{e.stopPropagation();const p=$('settingsPanel'),o=p.hidden;p.hidden=!o;$('gearBtn').setAttribute('aria-expanded',String(o))};
+document.addEventListener('click',e=>{const p=$('settingsPanel');if(!p.hidden&&!e.target.closest('#settingsPanel,#gearBtn')){p.hidden=true;$('gearBtn').setAttribute('aria-expanded','false')}});
 setTheme(store('lucky.theme')||'auto');
 renderHist(); renderAll(false);
 if(scratchMode)setScratchMode(true);
