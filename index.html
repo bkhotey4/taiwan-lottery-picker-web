@@ -1143,6 +1143,7 @@ function renderChance(){
   const optOk=lastOpt&&lastOpt.opt!=null&&n>1&&t.list.length>1;
   $('chanceLine').innerHTML=n>1?`這 ${n} 組：至少中一個獎 <b>${optOk?(lastOpt.exact?'':'約 ')+pct(lastOpt.opt):(t.list.length>1?'約 ':'')+pct(t.list.length>1?any:jp)}</b>`+(optOk?`（隨機買約 ${pct(any)}）`:'')+` · 中${top} <b>${oneIn(jp)}</b>`
     :`這一組：中任一獎 <b>${oneIn(p)}</b> · 中${top} <b>${oneIn(jp)}</b>`;
+  $('chanceLine').innerHTML+=` · 要花 <b>${(n*PRICE[cur]).toLocaleString('en-US')}</b> 元（每注 ${PRICE[cur]} 元）`;
   $('chance').innerHTML=cards.map(([l,v,s,h])=>`<div${h?' class="hl"':''}><small>${l}</small><strong>${v}</strong><em>${s}</em></div>`).join('');
   $('tierRows').innerHTML=t.list.map(([nm,d,c])=>`<tr><td>${nm}</td><td>${d}</td><td>${oneIn(c/t.total)}</td></tr>`).join('');
   $('chanceNote').textContent=`這是開獎前的機率：不管選哪組號碼、有沒有指定必選號碼、有沒有避開熱門選法，機率都一樣。`+(n>1&&t.list.length>1?(lastOpt&&lastOpt.opt!=null?(lastOpt.exact?'「中獎機率最大」讓每組要中的位數都不同，各組不可能同時中獎，所以機率直接相加（精確值）。':'「中獎機率最大」用 6,000 次模擬開獎挑出最不重疊的組合，再用另外 2 萬次模擬估計「至少中一個獎」（誤差約 ±0.4%）。')+'每一組的中獎機率、平均中獎次數與期望值都不變，只是把中獎機會分散開。'
@@ -1452,7 +1453,7 @@ function renderPicks(){
   const box=$('picksBox'); box.hidden=!picksCol;
   if(!picksCol)return;
   if(!picksReady){$('picksSum').textContent='';$('picks').innerHTML='<div class="pick"><span class="status">讀取中…</span></div>';return}
-  let drawn=0, won=0, spent=0, gained=0, unknown=0;
+  let drawn=0, won=0, spent=0, gained=0, unknown=0, pendN=0, pendCost=0;
   const rows=picks.map(p=>{
     const g=GAMES[p.game], st=drawForPick(p), s={z1:p.z1,z2:p.z2};
     let status, win=false;
@@ -1464,7 +1465,8 @@ function renderPicks(){
       const when=st.draw.date?`（${st.draw.date.slice(5).replace('-','/')}）`:'';
       status=`第 ${st.draw.period} 期${when}：${m.hitTxt} → ${m.prize?m.prize+money:'沒中獎'}`;
     }
-    else status=st.state==='pending'?'等開獎':st.state==='expired'?'已超過可對獎的期數':'還沒有開獎資料';
+    else{if(st.state==='pending'){pendN++;pendCost+=PRICE[p.game]}
+      status=st.state==='pending'?`等開獎：${nextDrawOf(p.game)?nextDrawOf(p.game).text+' 開獎後自動對獎':'下一期開獎後自動對獎'}（${PRICE[p.game]} 元）`:st.state==='expired'?'已超過可對獎的期數':'還沒有開獎資料';}
     const nums=g.digits?p.z1.join(''):p.z1.map(v=>fmt(v,2)).join(' ')+(p.z2.length?' ＋ '+p.z2.map(v=>fmt(v,2)).join(' '):'');
     const sv=taipei(p.createdAt);
     return `<div class="pick"><span class="gname">${g.name}</span><span class="nums">${nums}</span><span class="rule">${sv.date.slice(5).replace('-','/')} 存${p.src&&PICK_SRC[p.src]?' · '+PICK_SRC[p.src]:''}</span>`+
@@ -1475,6 +1477,7 @@ function renderPicks(){
   $('picksMoney').innerHTML=drawn?`已開獎的 ${drawn} 組：花 <b>${spent.toLocaleString('en-US')}</b> 元，中 <b>${gained.toLocaleString('en-US')}</b> 元，`+
     `<b class="${net>=0?'up':'down'}">${net>=0?'賺':'虧'} ${Math.abs(net).toLocaleString('en-US')} 元</b>`+
     (unknown?`（另有 ${unknown} 組中獎但查不到金額，沒算進去）`:'')+'。以每組 1 注、官方每期實際獎金計算，不含稅。':'';
+  if(pendN)$('picksMoney').innerHTML=`<span class="pend">等開獎 <b>${pendN}</b> 組，要花 <b>${pendCost.toLocaleString('en-US')}</b> 元；開獎後會自動對獎、算出中多少。</span>`+($('picksMoney').innerHTML?'<br>'+$('picksMoney').innerHTML:'');
   renderNews(); syncNative(); renderRecScore(); renderCap(); renderWinRate();
   $('picks').innerHTML=rows.length?rows.join(''):'<div class="pick"><span class="status">還沒有存號碼。按號碼旁的「存這組」，或打開下面的「輸入自己買的號碼」。</span></div>';
 }
