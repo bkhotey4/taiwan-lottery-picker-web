@@ -283,6 +283,7 @@ body:not(.can-save) .lab-preds .save{display:none}
 .save{display:none;margin-left:auto;padding:5px 10px;font-size:12px}
 body.can-save .save{display:inline-block}
 .save:disabled{color:var(--pick);border-color:var(--pick);cursor:default}
+.save.saved{color:var(--pick);border-color:var(--pick);font-weight:700}
 .back-btn{margin-left:auto;padding:5px 10px;font-size:12px}
 .set .mlabel{order:10;flex:1 1 100%;font-size:12px;color:var(--muted)}
 .set .mlabel b{color:var(--ink);margin-right:6px}
@@ -392,6 +393,7 @@ body.can-save .save{display:inline-block}
           <button type="button" data-style="o" title="原本的樣式">原本</button><button type="button" data-style="a" title="A 簡約白">A</button><button type="button" data-style="b" title="B 彩券行">B</button><button type="button" data-style="c" title="C 夜光霓虹">C</button><button type="button" data-style="d" title="D 柔和圓潤">D</button>
         </div>
         <p class="style-note" id="styleNote"></p>
+        <p class="style-note" id="appVer"></p>
         <div class="theme-sw" role="group" aria-label="外觀">
           <button type="button" data-theme="auto">自動</button><button type="button" data-theme="light">亮色</button><button type="button" data-theme="dark">暗色</button>
         </div>
@@ -1597,18 +1599,30 @@ function renderWinRate(){
     keys.sort((a,b)=>groups[b].n-groups[a].n).map(k=>row(PICK_SRC[k]||'其他（舊的號碼）',groups[k])).join('')+(keys.length>1?row('<b>合計</b>',tot):'')+`</tbody></table></div>`+
     `<p class="rule">中獎＝中任何一個獎。期數還少時，實際跟理論差很多是正常的；累積幾百期以上才看得出來有沒有差別。</p>`;
 }
+// 每個「存這組」按鈕對應的彩種與號碼
+function saveTarget(b){
+  if(b.closest('#sets')){const x=last[+b.dataset.i];return x&&{game:cur,z1:x.z1,z2:x.z2}}
+  if(b.closest('#todayList')){const x=todaySets[b.dataset.today];return x&&{game:b.dataset.today,z1:x.z1,z2:x.z2}}
+  if(b.closest('#aiPreds')){const x=aiPredList[+b.dataset.ai];return x&&{game:cur,z1:x.z1,z2:x.z2}}
+  if(b.closest('#labPreds')){const L=labCache[cur],x=L&&L.next[+b.dataset.pred];return x&&{game:cur,z1:x.z1,z2:x.z2?[x.z2]:[]}}
+  return null;
+}
 function renderSaveButtons(){
   const saved=pendingKeys();
-  document.querySelectorAll('#sets .save').forEach(b=>{const s=last[+b.dataset.i];if(!s)return;
-    const done=saved.has(pickKey(cur,s.z1,s.z2));b.disabled=done;b.textContent=done?'已存':'存這組'});
-  document.querySelectorAll('#todayList .save').forEach(b=>{const id=b.dataset.today, p=todaySets[id];if(!p)return;
-    const done=saved.has(pickKey(id,p.z1,p.z2));b.disabled=done;b.textContent=done?'已存':'存這組'});
-  document.querySelectorAll('#aiPreds .save').forEach(b=>{const p=aiPredList[+b.dataset.ai];if(!p)return;
-    const done=saved.has(pickKey(cur,p.z1,p.z2));b.disabled=done;b.textContent=done?'已存':'存這組'});
-  const L=labCache[cur];
-  document.querySelectorAll('#labPreds .save').forEach(b=>{const p=L&&L.next[+b.dataset.pred];if(!p)return;
-    const done=saved.has(pickKey(cur,p.z1,p.z2?[p.z2]:[]));b.disabled=done;b.textContent=done?'已存':'存這組'});
+  document.querySelectorAll('#sets .save,#todayList .save,#aiPreds .save,#labPreds .save').forEach(b=>{const t=saveTarget(b);if(!t)return;
+    const done=saved.has(pickKey(t.game,t.z1,t.z2));b.disabled=false;b.classList.toggle('saved',done);
+    b.textContent=done?'已存 ✓':'存這組';b.title=done?'再按一次取消（還沒開獎的才能取消）':'存起來，開獎後自動對獎'});
 }
+// 再按一次「已存」＝取消：刪掉還沒開獎的那一筆（在各區自己的存檔程式之前攔下來）
+document.addEventListener('click',async e=>{
+  const b=e.target.closest('.save.saved'); if(!b||!picksCol)return;
+  e.stopPropagation(); e.preventDefault();
+  const t=saveTarget(b); if(!t)return;
+  const key=pickKey(t.game,t.z1,t.z2), p=picks.find(x=>pickKey(x.game,x.z1,x.z2)===key&&['pending','nodata'].includes(drawForPick(x).state));
+  if(!p)return;
+  b.disabled=true; b.textContent='取消中…';
+  try{await picksCol.doc(p.id).delete()}catch(err){b.disabled=false;renderSaveButtons()}
+},true);
 // ---- 挑少人選的號碼：機率都一樣，挑「比較少人會選」的組合，萬一中頭獎比較不用跟人平分 ----
 const LUCKY=new Set([7,8,9,6,3,18,28,38,16,26,36]); // 常被當成幸運數字的號碼
 // 由歷年「銷售注數」與「中獎人數」反推的每個號碼熱門程度（stats.games[彩種].pop，由 scripts/fetch-stats.mjs 產生）
@@ -2483,6 +2497,8 @@ function setStyle(v){
 }
 document.querySelectorAll('.style-sw button').forEach(b=>b.onclick=()=>setStyle(b.dataset.style));
 setStyle(store('lucky.style')||'b'); // 預設風格：B 彩券行
+const APP_VER='3.9'; // 每次發布跟 android/build.sh 的 VERSION_NAME 一起改
+$('appVer').textContent='版本 '+APP_VER;
 setTheme(store('lucky.theme')||'auto');
 renderHist(); renderAll(false);
 if(!store('lucky.intro')){$('introBar').hidden=false;$('introOk').onclick=()=>{store('lucky.intro',1);$('introBar').hidden=true}}
