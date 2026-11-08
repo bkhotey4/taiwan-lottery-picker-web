@@ -48,13 +48,32 @@ button:focus-visible,input:focus-visible,select:focus-visible{outline:3px solid 
 @media (prefers-reduced-motion:no-preference){.ball.pop{animation:pop .35s cubic-bezier(.2,1.4,.4,1) both}}
 @keyframes pop{from{transform:scale(.3) rotate(-90deg);opacity:0}to{transform:none;opacity:1}}
 .controls{display:flex;flex-wrap:wrap;gap:12px;align-items:end}
+.opts{font-size:13px;margin-top:-4px}
+.opts summary{cursor:pointer;font-weight:700;color:var(--muted);padding:6px 0}
+.opts[open] summary{margin-bottom:8px}
+.opts .check+.check{margin-top:10px}
+.sets-head{align-items:flex-start;gap:8px}
+.sets-info{flex:1;font-size:12px;color:var(--muted);line-height:1.6}
+.sets-info b{color:var(--ink)}
+.sets-tools{display:flex;align-items:center;gap:6px}
+.sets-tools .ghost{padding:5px 12px;font-size:12px}
+.fold-head{display:flex;align-items:center;gap:10px}
+.fold-head>:first-child{flex:1;min-width:0}
+.fold-btn{flex:none;padding:6px 14px;font-size:13px}
+.fold-hint{margin:6px 0 0;font-size:13px;color:var(--muted);cursor:pointer}
+.tagline{margin:4px 0 0;font-size:14px}
+.why-box{font-size:13px;margin-top:6px}
+.why-box summary{cursor:pointer;font-weight:700;color:var(--muted);padding:4px 0}
+.why-box[open] summary{margin-bottom:6px}
 .field{display:flex;flex-direction:column;gap:4px;font-size:13px;color:var(--muted);min-width:0}
 .field input,.field select{font:inherit;color:var(--ink);background:var(--bg);border:1.5px solid var(--line);border-radius:8px;padding:8px 10px}
 .field.grow{flex:1 1 200px}
 .go{font:inherit;font-weight:900;font-size:17px;background:var(--accent);color:var(--accent-ink);border:0;border-radius:10px;padding:12px 22px;cursor:pointer;letter-spacing:.08em}
 .go:active{transform:translateY(1px)}
 .ghost{font:inherit;font-size:13px;background:none;border:1.5px solid var(--line);color:var(--ink);border-radius:8px;padding:8px 12px;cursor:pointer}
-.msg{font-size:13px;color:var(--accent);min-height:1.2em;margin:0}
+.msg{font-size:13px;color:var(--accent);margin:0}
+.msg:empty{display:none}
+@media (max-width:600px){#main .controls .go{flex:1 1 100%}}
 .odds{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:10px}
 .odds div{background:var(--paper);border:1.5px solid var(--line);border-radius:10px;padding:10px 12px}
 .odds small{display:block;color:var(--muted);font-size:12px}
@@ -258,6 +277,24 @@ body.can-save .save{display:inline-block}
   <section class="slip" id="main" aria-live="polite">
     <div class="rule" id="rule"></div>
     <div class="next" id="nextDraw"></div>
+    <div class="controls">
+      <label class="field">組數
+        <select id="count">
+          <option>1</option><option>2</option><option selected>3</option><option>5</option><option>10</option>
+        </select>
+      </label>
+      <label class="field grow">必選號碼（選填，用空格或逗號分隔）
+        <input id="must" inputmode="numeric" placeholder="例如 7 18">
+      </label>
+      <button class="go" id="go">重新選號</button>
+    </div>
+    <details class="opts" id="optsBox">
+      <summary id="optsSum">更多選項</summary>
+      <label class="check" id="avoidWrap"><input type="checkbox" id="avoid"> <span>避開熱門選法</span><small id="avoidHint">少選生日、連號、規則排列，萬一中頭獎比較不會跟別人平分（中獎機率不變）</small></label>
+      <label class="check" id="spreadWrap"><input type="checkbox" id="spread"> <span>多組號碼盡量不重疊</span><small id="spreadHint">開多組時先用還沒出現過的號碼，「至少中一個獎」的機會會稍微高一點（平均中獎次數不變）</small></label>
+    </details>
+    <p class="msg" id="msg"></p>
+    <div class="row sets-head"><span class="sets-info" id="setsInfo"></span><span class="sets-tools"><button class="ghost" id="copy">複製</button><span class="rule" id="copied"></span></span></div>
     <div class="sets" id="sets"></div>
     <div class="back-box" id="backOut" hidden></div>
     <div class="chance-box">
@@ -269,24 +306,6 @@ body.can-save .save{display:inline-block}
       <div class="set" id="latestBalls"></div>
       <div class="jackpot" id="latestJackpot"></div>
       <div class="match" id="latestMatch"></div>
-    </div>
-    <div class="controls">
-      <label class="field">組數
-        <select id="count">
-          <option>1</option><option>2</option><option selected>3</option><option>5</option><option>10</option>
-        </select>
-      </label>
-      <label class="field grow">必選號碼（選填，用空格或逗號分隔）
-        <input id="must" inputmode="numeric" placeholder="例如 7 18">
-      </label>
-      <button class="go" id="go">開獎</button>
-    </div>
-    <label class="check" id="avoidWrap"><input type="checkbox" id="avoid"> <span>避開熱門選法</span><small id="avoidHint">少選生日、連號、規則排列，萬一中頭獎比較不會跟別人平分（中獎機率不變）</small></label>
-    <label class="check" id="spreadWrap"><input type="checkbox" id="spread"> <span>多組號碼盡量不重疊</span><small id="spreadHint">開多組時先用還沒出現過的號碼，「至少中一個獎」的機會會稍微高一點（平均中獎次數不變）</small></label>
-    <p class="msg" id="msg"></p>
-    <div class="row">
-      <button class="ghost" id="copy">複製這幾組</button>
-      <span class="rule" id="copied"></span>
     </div>
   </section>
 
@@ -302,7 +321,8 @@ body.can-save .save{display:inline-block}
 <div class="col col-side">
   <section class="slip" id="recBox" aria-label="幫我挑一組">
     <div class="row"><h2>要簽了嗎？幫我挑一組</h2><span class="rule" id="recMeta"></span></div>
-    <p class="rule" id="recIntro"></p>
+    <p class="tagline">挑<b>比較少人選</b>的組合：中獎機率跟隨機選號一樣，但萬一中頭獎，比較不用跟別人平分。</p>
+    <details class="why-box"><summary>怎麼挑的？大家最常選哪些號碼？</summary><p class="rule" id="recIntro"></p></details>
     <div class="controls">
       <label class="field">組數
         <select id="recCount"><option>1</option><option>2</option><option selected>3</option><option>5</option></select>
@@ -864,6 +884,8 @@ function run(anim,log=anim){
   const g=GAMES[cur]; const m=parseMust(g); $('msg').textContent=m.ok?'':m.err; if(!m.ok)return;
   const n=+$('count').value; last=drawSets(g,m.list,n);
   $('sets').innerHTML=last.map((s,i)=>setHTML(g,s,i,anim)).join('');
+  {const t=new Date(Date.now()+8*3600e3), hm=`${String(t.getUTCHours()).padStart(2,'0')}:${String(t.getUTCMinutes()).padStart(2,'0')}`;
+   $('setsInfo').innerHTML=`<b>隨機號碼</b> · ${hm} 抽的 · 按「重新選號」再抽一次<br><span>純隨機、可以指定必選號碼；想挑比較少人選的，用「幫我挑一組」</span>`}
   $('backOut').hidden=true;
   if(log){hist.unshift({t:Date.now(),g:g.name,sets:last.map(s=>asText(g,s))}); hist=hist.slice(0,8); store('lucky.hist',hist); renderHist()}
   $('copied').textContent='';
@@ -1443,13 +1465,15 @@ function renderAvoid(){
   $('spreadHint').textContent=off?`${g.name}的位數可以重複，這個選項不適用（多組號碼一樣不會完全相同）`:'開多組時先用還沒出現過的號碼，「至少中一個獎」的機會會稍微高一點（平均中獎次數不變）';
   $('avoid').checked=avoid&&!off; $('avoid').disabled=off; $('avoidWrap').classList.toggle('off',off);
   $('avoidHint').textContent=off?`${g.name}正彩獎金固定，不會跟別人平分，不需要避開`:'少選生日、連號、規則排列、照抄上一期，萬一中頭獎比較不會跟別人平分（中獎機率不變）';
+  const on=[!off&&avoid&&'避開熱門',!off&&spread&&'不重疊'].filter(Boolean);
+  $('optsSum').textContent=off?'更多選項（這個彩種不適用）':on.length?`更多選項（已開：${on.join('、')}）`:'更多選項（避開熱門、多組不重疊）';
 }
 function renderRule(){const g=GAMES[cur];$('rule').innerHTML=`<span><b>${g.name}</b></span><span>${g.rule}</span>`;renderAvoid();renderNextDraw();renderWheel();renderFreq();renderLab();renderRecIntro();$('recOut').innerHTML='';
   $('must').placeholder=g.digits?'例如 7（從第一位開始指定）':'例如 7 18';
   $('odds').innerHTML=g.odds.map(([l,v])=>`<div><small>${l}機率</small><strong>1 / ${v.toLocaleString('en-US')}</strong></div>`).join('')+
     `<div><small>每期買 1 注、連買 1 年（約 ${DRAW_DAYS[cur].length*52} 期）中${g.digits?'正彩':'頭獎'}的機率</small><strong>約 1 / ${Math.round(g.odds[0][1]/(DRAW_DAYS[cur].length*52)).toLocaleString('en-US')}</strong></div>`}
 function renderHist(){
-  if(!hist.length){$('hist').innerHTML='<div>按「開獎」後，最近 8 次會留在這台裝置上。</div>';return}
+  if(!hist.length){$('hist').innerHTML='<div>按「重新選號」後，最近 8 次會留在這台裝置上。</div>';return}
   $('hist').innerHTML=hist.map(h=>{const d=new Date(h.t);const ts=`${d.getMonth()+1}/${d.getDate()} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`;
     return `<div><span>${ts}</span><span>${h.g}</span><b>${h.sets.join('　｜　')}</b></div>`}).join('');
 }
@@ -1484,19 +1508,40 @@ if(!window.claude&&location.protocol==='https:'){
   };
 }
 // 跳轉按鈕：對應區塊隱藏時（例如 3星彩沒有包牌）按鈕也跟著藏起來
+// ---- 比較少用的區塊預設收合，只顯示標題和一句說明（展開狀態記在這台裝置） ----
+const FOLD={labBox:'7 種預測方法的回測、最近每一期的比對、AI 事先存好的預測',wheelBox:'輸入 7–16 個號碼，算包牌要幾注、花多少、中獎機率',budgetBox:'同樣的錢買不同彩種，哪個比較容易中',freqBox:'每個號碼歷年開出幾次，跟公平抽球比較'};
+function bindFold(){
+  let open=store('lucky.fold'); if(!open||typeof open!=='object')open={};
+  for(const [id,hint] of Object.entries(FOLD)){
+    const sec=$(id); if(!sec||sec.foldOpen)continue;
+    const head=sec.firstElementChild, body=document.createElement('div'), btn=document.createElement('button'), p=document.createElement('p'), wrap=document.createElement('div');
+    body.className='fold-body'; body.id=id+'Body';
+    while(head.nextSibling)body.appendChild(head.nextSibling);
+    btn.type='button'; btn.className='ghost fold-btn'; btn.setAttribute('aria-controls',body.id);
+    p.className='fold-hint'; p.textContent=hint;
+    wrap.className='fold-head'; head.replaceWith(wrap); wrap.append(head,btn); sec.append(p,body);
+    const set=o=>{body.hidden=!o;p.hidden=o;btn.textContent=o?'收合':'展開';btn.setAttribute('aria-expanded',String(o));sec.classList.toggle('folded',!o)};
+    const toggle=o=>{set(o);open[id]=o;store('lucky.fold',open)};
+    set(!!open[id]);
+    btn.onclick=()=>toggle(body.hidden); p.onclick=()=>toggle(true);
+    sec.foldOpen=()=>{if(body.hidden)toggle(true)};
+  }
+}
+bindFold();
 document.querySelectorAll('.jump a').forEach(a=>{
   const t=document.querySelector(a.getAttribute('href'));
   const sync=()=>{a.hidden=!t||t.hidden};
   if(t)new MutationObserver(sync).observe(t,{attributes:true,attributeFilter:['hidden']});
   sync();
   a.addEventListener('click',e=>{e.preventDefault();if(!t||t.hidden)return;
+    if(t.foldOpen)t.foldOpen();
     const y0=scrollY;
     t.scrollIntoView({behavior:matchMedia('(prefers-reduced-motion: reduce)').matches?'auto':'smooth',block:'start'});
     setTimeout(()=>{if(scrollY===y0&&Math.abs(t.getBoundingClientRect().top)>80)t.scrollIntoView({block:'start'})},350); // 有些瀏覽器不支援平滑捲動，改成直接跳
   });
 });
-$('avoid').onchange=()=>{avoid=$('avoid').checked;store('lucky.avoid',avoid);run(true)};
-$('spread').onchange=()=>{spread=$('spread').checked;store('lucky.spread',spread);run(true)};
+$('avoid').onchange=()=>{avoid=$('avoid').checked;store('lucky.avoid',avoid);renderAvoid();run(true)};
+$('spread').onchange=()=>{spread=$('spread').checked;store('lucky.spread',spread);renderAvoid();run(true)};
 {const sb=store('lucky.budget'); if(Number.isFinite(sb)&&sb>=0)$('budget').value=sb;}
 $('budget').addEventListener('input',()=>{renderBudget();const v=Math.floor(Number($('budget').value));if(Number.isFinite(v)&&v>=0)store('lucky.budget',v)});
 $('count').onchange=()=>run(true);
