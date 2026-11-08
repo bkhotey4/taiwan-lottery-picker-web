@@ -1,12 +1,12 @@
 <!doctype html>
-<html lang="zh-Hant">
+<html data-style="b" lang="zh-Hant">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>彩券號碼機</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+TC:wght@400;500;700;900&family=JetBrains+Mono:wght@500;700&display=swap">
-<script>try{var _t=JSON.parse(localStorage.getItem('lucky.theme'));if(_t==='light'||_t==='dark')document.documentElement.dataset.theme=_t;var _s=JSON.parse(localStorage.getItem('lucky.style'));if(['a','b','c','d'].indexOf(_s)>=0)document.documentElement.dataset.style=_s}catch(e){}</script>
+<script>try{var _t=JSON.parse(localStorage.getItem('lucky.theme'));if(_t==='light'||_t==='dark')document.documentElement.dataset.theme=_t;var _s=JSON.parse(localStorage.getItem('lucky.style'));if(_s===null||_s===undefined)_s='b';if(['a','b','c','d'].indexOf(_s)>=0)document.documentElement.dataset.style=_s;else if(_s==='o')delete document.documentElement.dataset.style}catch(e){document.documentElement.dataset.style='b'}</script>
 <style>
 /* Layout: one column "betting slip" — game tabs, a drawn row of balls per set, then options and a short history */
 :root{
@@ -2402,7 +2402,7 @@ function setStyle(v){
   $('styleNote').textContent='風格：'+STYLE_NAMES[v];
 }
 document.querySelectorAll('.style-sw button').forEach(b=>b.onclick=()=>setStyle(b.dataset.style));
-setStyle(store('lucky.style')||'o');
+setStyle(store('lucky.style')||'b'); // 預設風格：B 彩券行
 setTheme(store('lucky.theme')||'auto');
 renderHist(); renderAll(false);
 if(!store('lucky.intro')){$('introBar').hidden=false;$('introOk').onclick=()=>{store('lucky.intro',1);$('introBar').hidden=true}}
