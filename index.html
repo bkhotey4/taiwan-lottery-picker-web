@@ -97,6 +97,22 @@ h2{font-size:15px;margin:0;letter-spacing:.04em}
 .freq-sum{margin:0;font-size:14px}
 .freq-sum b{font-family:var(--f-num)}
 #freqZ2 h3{font-size:13px;margin:6px 0 4px;color:var(--muted);font-weight:500}
+/* 版面：手機一欄（兩個 .col 攤平成同一層）＋跳轉按鈕黏在上方；寬螢幕左右兩欄，左欄固定 */
+.col{display:contents}
+.jump{display:flex;gap:6px;overflow-x:auto;scrollbar-width:none;position:sticky;top:0;z-index:5;background:var(--bg);padding-block:8px;margin-block:-8px}
+.jump::-webkit-scrollbar{display:none}
+.jump a{flex:none;font-size:13px;font-weight:700;color:var(--ink);text-decoration:none;border:1.5px solid var(--line);background:var(--paper);border-radius:999px;padding:5px 12px}
+.jump a:hover{border-color:var(--ink)}
+.jump a[hidden]{display:none}
+.wrap>.col>section,.wrap>.col>p{scroll-margin-top:56px}
+@media (min-width:960px){
+  .wrap{max-width:1200px;display:grid;grid-template-columns:minmax(0,1.05fr) minmax(0,1fr);gap:24px;align-items:start}
+  .col{display:flex;flex-direction:column;gap:18px;min-width:0}
+  .col-main{position:sticky;top:16px;max-height:calc(100vh - 32px);overflow-y:auto;scrollbar-width:thin;padding:2px 6px 2px 2px;margin:-2px -6px -2px -2px}
+  .jump{position:static;margin:0;padding:0;flex-wrap:wrap}
+  .jump a.main-link{display:none}
+  .wrap>.col>section,.wrap>.col>p{scroll-margin-top:16px}
+}
 .cmp-wrap{overflow-x:auto}
 .cmp{width:100%;border-collapse:collapse;font-size:13px}
 .cmp th,.cmp td{text-align:right;padding:7px 6px;border-bottom:1px solid var(--line);white-space:nowrap;font-variant-numeric:tabular-nums}
@@ -131,6 +147,7 @@ body.can-save .save{display:inline-block}
 <body>
 
 <div class="wrap">
+<div class="col col-main">
   <header>
     <h1>今晚<span>號碼</span>機</h1>
     <p>台灣彩券隨機選號，自己玩的娛樂工具</p>
@@ -138,7 +155,16 @@ body.can-save .save{display:inline-block}
 
   <div class="tabs" role="group" aria-label="選擇彩種" id="tabs"></div>
 
-  <section class="slip" aria-live="polite">
+  <nav class="jump" aria-label="跳到">
+    <a href="#main" class="main-link">選號</a>
+    <a href="#picksBox">我存的號碼</a>
+    <a href="#wheelBox">包牌</a>
+    <a href="#budgetBox">預算比較</a>
+    <a href="#freqBox">歷年統計</a>
+    <a href="#histBox">選號紀錄</a>
+  </nav>
+
+  <section class="slip" id="main" aria-live="polite">
     <div class="rule" id="rule"></div>
     <div class="next" id="nextDraw"></div>
     <div class="sets" id="sets"></div>
@@ -179,7 +205,9 @@ body.can-save .save{display:inline-block}
     </details>
     <p class="note" id="chanceNote"></p>
   </section>
+</div>
 
+<div class="col col-side">
   <section class="slip" id="picksBox" hidden>
     <div class="row"><h2>我存的號碼</h2><span class="rule" id="picksSum"></span></div>
     <div class="picks" id="picks"></div>
@@ -205,7 +233,7 @@ body.can-save .save{display:inline-block}
     <p class="note">包牌就是把你選的號碼所有組合都買下來。頭獎機率跟隨機買同樣注數一樣；但因為組合全集中在少數號碼上，「至少中一個獎」反而比隨機買低很多。好處是開出的號碼落在你的號碼裡時，會一次中很多注。</p>
   </section>
 
-  <section class="slip" aria-label="預算比較">
+  <section class="slip" id="budgetBox" aria-label="預算比較">
     <h2>同樣的預算，玩哪個比較容易中？</h2>
     <label class="field">每期預算（元）
       <input id="budget" type="number" min="25" max="100000" step="25" inputmode="numeric" value="100">
@@ -229,12 +257,13 @@ body.can-save .save{display:inline-block}
 
   <section class="odds" id="odds" aria-label="頭獎機率"></section>
 
-  <section class="slip">
+  <section class="slip" id="histBox">
     <div class="row"><h2>最近選過的號碼</h2><button class="ghost" id="clear">清除紀錄</button></div>
     <div class="hist" id="hist"></div>
   </section>
 
   <p class="note">每一組號碼中獎的機率都一樣，開獎是隨機的，任何工具都沒辦法預測。這裡只是用瀏覽器的亂數幫你挑號碼，玩得開心就好，預算自己先訂好。實際玩法與獎金以台灣彩券官方公告為準。</p>
+</div>
 </div>
 
 <script>
@@ -741,6 +770,18 @@ function renderHist(){
 function renderAll(anim){renderTabs();renderRule();run(anim)}
 $('go').onclick=()=>run(true);
 bindWheel();
+// 跳轉按鈕：對應區塊隱藏時（例如 3星彩沒有包牌）按鈕也跟著藏起來
+document.querySelectorAll('.jump a').forEach(a=>{
+  const t=document.querySelector(a.getAttribute('href'));
+  const sync=()=>{a.hidden=!t||t.hidden};
+  if(t)new MutationObserver(sync).observe(t,{attributes:true,attributeFilter:['hidden']});
+  sync();
+  a.addEventListener('click',e=>{e.preventDefault();if(!t||t.hidden)return;
+    const y0=scrollY;
+    t.scrollIntoView({behavior:matchMedia('(prefers-reduced-motion: reduce)').matches?'auto':'smooth',block:'start'});
+    setTimeout(()=>{if(scrollY===y0&&Math.abs(t.getBoundingClientRect().top)>80)t.scrollIntoView({block:'start'})},350); // 有些瀏覽器不支援平滑捲動，改成直接跳
+  });
+});
 $('avoid').onchange=()=>{avoid=$('avoid').checked;store('lucky.avoid',avoid);run(true)};
 $('spread').onchange=()=>{spread=$('spread').checked;store('lucky.spread',spread);run(true)};
 {const sb=store('lucky.budget'); if(Number.isFinite(sb)&&sb>=0)$('budget').value=sb;}
