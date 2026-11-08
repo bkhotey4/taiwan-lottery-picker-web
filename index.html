@@ -120,6 +120,12 @@ button:focus-visible,input:focus-visible,select:focus-visible{outline:3px solid 
 .win-rate:empty{display:none}
 .rs-list{display:grid;gap:8px;font-size:13px}
 .sc-list{display:grid;gap:8px}
+body:not(.mode-scratch) #scratchBox{display:none}
+body.mode-scratch .col-main>*:not(#scratchBox):not(header):not(.tabs):not(.news),body.mode-scratch .col-side,body.mode-scratch .jump{display:none!important}
+body.mode-scratch .wrap{grid-template-columns:1fr;max-width:900px}
+body.mode-scratch .col-main{position:static;max-height:none;overflow:visible}
+@media (min-width:700px){body.mode-scratch .sc-list{grid-template-columns:1fr 1fr}}
+.tabs .tab-scratch{border-style:dashed}
 .sc-row{padding:10px 12px;background:var(--bg);border-radius:8px}
 [data-style="b"] .sc-row{border:1.5px dashed var(--line);border-radius:4px}
 .sc-head{display:flex;justify-content:space-between;gap:8px;font-size:15px}
@@ -424,6 +430,22 @@ body.can-save .save{display:inline-block}
     <span class="news-btns"><button type="button" class="ghost" id="newsGo">看結果</button><button type="button" class="ghost" id="newsOk">知道了</button></span>
   </div>
 
+  <section class="slip" id="scratchBox" aria-label="刮刮樂比較">
+    <div class="row"><h2>刮刮樂：銷售中的款式比較</h2><span class="rule" id="scMeta"></span></div>
+    <p class="rule">每一張中不中，印刷時就決定了，外觀看不出來，所以沒辦法挑「哪一張」。但不同「款式」的條件不一樣，這裡用台彩即時資料比較。</p>
+    <div class="controls">
+      <label class="field">排序
+        <select id="scSort"><option value="win">中獎率高到低</option><option value="jp">頭獎機率高到低</option><option value="ret">頭獎平均拿回多到少</option><option value="remain">頭獎剩下比例高到低</option><option value="down">快下市的先</option></select>
+      </label>
+      <label class="field">售價
+        <select id="scPrice"><option value="">全部</option><option>100</option><option>200</option><option>300</option><option>500</option><option value="1000">1000 以上</option></select>
+      </label>
+      <button type="button" class="ghost" id="scReload">重新整理</button>
+    </div>
+    <div class="sc-list" id="scList"><p class="rule">載入中…</p></div>
+    <p class="note">中獎率是台彩公布的「中任何獎」比例，包含拿回比售價少的小獎，不等於賺錢的機率。頭獎「已兌領」是到銀行兌獎的張數（中了還沒去領的不會算進去），所以「剩下」可能比實際多；台彩在銷售期間不公布銷售進度，剩下的頭獎沒辦法換算成每一張的機率。「頭獎平均拿回」＝頭獎金額 × 張數 ÷ 發行張數，只算頭獎、不含其他獎項。</p>
+  </section>
+
   <section class="slip" id="main" aria-live="polite">
     <div class="rule" id="rule"></div>
     <div class="next" id="nextDraw"></div>
@@ -618,21 +640,6 @@ body.can-save .save{display:inline-block}
     <p class="note">z＝跟隨機選號差幾個標準差。「和隨機比」用統計檢定：差距在 ±2 個標準差內代表跟隨機選號沒有分別。同時比很多種方法時，偶爾有一種剛好超過 2 也是正常的運氣。開獎是獨立隨機的，過去的號碼沒有可以學的規律，所以不要期待哪個方法長期贏過隨機。</p>
   </section>
 
-  <section class="slip" id="scratchBox" data-tab="ana" aria-label="刮刮樂比較">
-    <div class="row"><h2>刮刮樂比較（銷售中）</h2><span class="rule" id="scMeta"></span></div>
-    <p class="rule">每一張中不中，印刷時就決定了，外觀看不出來，所以沒辦法挑「哪一張」。但不同「款式」的條件不一樣，這裡用台彩即時資料比較。</p>
-    <div class="controls">
-      <label class="field">排序
-        <select id="scSort"><option value="win">中獎率高到低</option><option value="jp">頭獎機率高到低</option><option value="ret">頭獎平均拿回多到少</option><option value="remain">頭獎剩下比例高到低</option><option value="down">快下市的先</option></select>
-      </label>
-      <label class="field">售價
-        <select id="scPrice"><option value="">全部</option><option>100</option><option>200</option><option>300</option><option>500</option><option value="1000">1000 以上</option></select>
-      </label>
-      <button type="button" class="ghost" id="scReload">重新整理</button>
-    </div>
-    <div class="sc-list" id="scList"><p class="rule">打開這一區時才會向台彩抓資料。</p></div>
-    <p class="note">中獎率是台彩公布的「中任何獎」比例，包含拿回比售價少的小獎，不等於賺錢的機率。頭獎「已兌領」是到銀行兌獎的張數（中了還沒去領的不會算進去），所以「剩下」可能比實際多；台彩在銷售期間不公布銷售進度，剩下的頭獎沒辦法換算成每一張的機率。「頭獎平均拿回」＝頭獎金額 × 張數 ÷ 發行張數，只算頭獎、不含其他獎項。</p>
-  </section>
 
   <section class="slip" id="researchBox" data-tab="ana" aria-label="學界研究與檢定">
     <div class="row"><h2>學界研究與檢定</h2><span class="rule" id="rsMeta"></span></div>
@@ -1258,8 +1265,17 @@ function store(k,v){try{if(v===undefined)return JSON.parse(localStorage.getItem(
 const saved=store('lucky.game'); if(saved&&GAMES[saved])cur=saved;
 let hist=store('lucky.hist')||[];
 
-function renderTabs(){$('tabs').innerHTML=Object.entries(GAMES).map(([k,g])=>`<button type="button" data-k="${k}" aria-pressed="${k===cur}">${g.name}</button>`).join('');
-  $('tabs').querySelectorAll('button').forEach(b=>b.onclick=()=>{cur=b.dataset.k;store('lucky.game',cur);$('must').value='';$('wheelNums').value='';$('wheelZ2').value='';
+let scratchMode=store('lucky.game')==='scratch';
+function setScratchMode(on){
+  scratchMode=on; document.body.classList.toggle('mode-scratch',on);
+  $('tabs').querySelectorAll('button').forEach(b=>b.setAttribute('aria-pressed',String(on?b.dataset.k==='scratch':b.dataset.k===cur)));
+  if(on){store('lucky.game','scratch');loadScratch(false)}
+}
+function renderTabs(){$('tabs').innerHTML=Object.entries(GAMES).map(([k,g])=>`<button type="button" data-k="${k}" aria-pressed="${!scratchMode&&k===cur}">${g.name}</button>`).join('')+
+    `<button type="button" data-k="scratch" class="tab-scratch" aria-pressed="${scratchMode}">刮刮樂</button>`;
+  $('tabs').querySelectorAll('button').forEach(b=>b.onclick=()=>{if(b.dataset.k==='scratch'){setScratchMode(true);return}
+    if(scratchMode)setScratchMode(false);
+    cur=b.dataset.k;store('lucky.game',cur);$('must').value='';$('wheelNums').value='';$('wheelZ2').value='';
     if($('mGame').options.length){$('mGame').value=cur;syncManual();$('mMsg').textContent=''}
     renderAll(true,false)})} // 換彩種會重新開號碼，但不記進「最近選過的號碼」
 function fmt(v,pad){return String(v).padStart(pad,'0')}
@@ -1905,7 +1921,10 @@ function renderResearch(){
 // ---- 刮刮樂比較：台彩 API（Instant/List 中獎率、Instant/Result 發行張數與頭獎張數、Instant/RedemptionLocation 頭獎兌領地點＝已兌領張數） ----
 let scData=null, scLoading=false;
 async function loadScratch(force){
-  if(scLoading)return; if(scData&&!force&&Date.now()-scData.at<30*60e3){renderScratch();return}
+  if(scLoading)return;
+  if(!scData){const sv=store('lucky.scratch');if(sv&&Array.isArray(sv.games))scData=sv} // 先顯示上次存在裝置的資料
+  if(scData&&!force&&Date.now()-scData.at<30*60e3){renderScratch();return}
+  if(scData)renderScratch();
   const box=$('scList'); scLoading=true; box.innerHTML='<p class="rule">向台彩抓刮刮樂資料中…</p>';
   try{
     const get=u=>fetch(TL_API.replace('/Lottery','')+u).then(r=>r.ok?r.json():null).then(j=>j&&j.content);
@@ -1916,10 +1935,14 @@ async function loadScratch(force){
       id:String(x.scratchId).replace(/[^\w]/g,''),name:String(x.scratchName).slice(0,30),price:Number(x.money)||0,top:Number(x.firstPrize)||0,issued:Number(x.issuedCount)||0,
       total:Number(x.total_prize)||0,win:odds[x.scratchId]?Number(odds[x.scratchId].oddsOfWinning)||null:null,
       list:String(x.listingDate).slice(0,10),down:String(x.downDate).slice(0,10)}));
-    // 已兌領頭獎：兌領地點的筆數（同時最多 6 個請求）
-    let i=0; await Promise.all(Array.from({length:6},async()=>{while(i<games.length){const g=games[i++];
-      try{const c=await get('/Instant/RedemptionLocation?ScratchId='+g.id);g.claimed=c&&Array.isArray(c.locations)?c.locations.length:null}catch(e){g.claimed=null}}}));
-    scData={at:Date.now(),games};
+    // 先顯示清單，已兌領頭獎（兌領地點的筆數）陸續補上，同時最多 8 個請求
+    const old={}; (scData&&scData.games||[]).forEach(g=>{old[g.id]=g.claimed});
+    games.forEach(g=>{g.claimed=old[g.id]??null});
+    scData={at:Date.now(),games}; renderScratch();
+    let i=0, done=0; await Promise.all(Array.from({length:8},async()=>{while(i<games.length){const g=games[i++];
+      try{const c=await get('/Instant/RedemptionLocation?ScratchId='+g.id);g.claimed=c&&Array.isArray(c.locations)?c.locations.length:g.claimed}catch(e){}
+      if(++done%6===0)renderScratch()}}));
+    store('lucky.scratch',scData);
   }catch(e){box.innerHTML='<p class="rule">暫時讀不到台彩的刮刮樂資料，稍後按「重新整理」再試。</p>';scLoading=false;return}
   scLoading=false; renderScratch();
 }
@@ -1942,8 +1965,6 @@ function renderScratch(){
 }
 function bindScratch(){
   $('scSort').onchange=renderScratch; $('scPrice').onchange=renderScratch; $('scReload').onclick=()=>loadScratch(true);
-  const sec=$('scratchBox'); new MutationObserver(()=>{const b=$('scratchBoxBody');if(b&&!b.hidden&&$('side').dataset.tab==='ana')loadScratch(false)}).observe(sec,{attributes:true,subtree:true,attributeFilter:['hidden','class']});
-  new MutationObserver(()=>{const b=$('scratchBoxBody');if(b&&!b.hidden&&$('side').dataset.tab==='ana')loadScratch(false)}).observe($('side'),{attributes:true,attributeFilter:['data-tab']});
 }
 // ---- 查某一期開獎：每個彩種都有 2007 年以來的每一期 ----
 function allDraws(id){ // 舊→新：{period,date,numbers,special,prizes}
@@ -2430,7 +2451,7 @@ if(location.protocol==='https:'){
 }
 // 跳轉按鈕：對應區塊隱藏時（例如 3星彩沒有包牌）按鈕也跟著藏起來
 // ---- 比較少用的區塊預設收合，只顯示標題和一句說明（展開狀態記在這台裝置） ----
-const FOLD={scratchBox:'各款刮刮樂的中獎率、頭獎機率、頭獎已兌領／剩下幾張（台彩即時資料）',researchBox:'學術研究用過的隨機性檢定，套在全部歷年＋最新開獎上自動重算；附相關論文',labBox:'13 種預測方法（含貝氏、馬可夫鏈等數學模型）的回測、最近每一期的比對、AI 事先存好的預測',wheelBox:'輸入 7–16 個號碼，算包牌要幾注、花多少、中獎機率',budgetBox:'同樣的錢買不同彩種，哪個比較容易中',checkBox:'輸入自己的號碼：歷年會中幾次、多少人選、萬一中頭獎實拿多少；也能查某一期開了什麼',simBox:'每期買幾注、連買幾年，模擬 2,000 個人最後賺賠的分布',freqBox:'每個號碼歷年開出幾次，跟公平抽球比較'};
+const FOLD={researchBox:'學術研究用過的隨機性檢定，套在全部歷年＋最新開獎上自動重算；附相關論文',labBox:'13 種預測方法（含貝氏、馬可夫鏈等數學模型）的回測、最近每一期的比對、AI 事先存好的預測',wheelBox:'輸入 7–16 個號碼，算包牌要幾注、花多少、中獎機率',budgetBox:'同樣的錢買不同彩種，哪個比較容易中',checkBox:'輸入自己的號碼：歷年會中幾次、多少人選、萬一中頭獎實拿多少；也能查某一期開了什麼',simBox:'每期買幾注、連買幾年，模擬 2,000 個人最後賺賠的分布',freqBox:'每個號碼歷年開出幾次，跟公平抽球比較'};
 function bindFold(){
   let open=store('lucky.fold'); if(!open||typeof open!=='object')open={};
   for(const [id,hint] of Object.entries(FOLD)){
@@ -2497,10 +2518,11 @@ function setStyle(v){
 }
 document.querySelectorAll('.style-sw button').forEach(b=>b.onclick=()=>setStyle(b.dataset.style));
 setStyle(store('lucky.style')||'b'); // 預設風格：B 彩券行
-const APP_VER='3.9'; // 每次發布跟 android/build.sh 的 VERSION_NAME 一起改
+const APP_VER='4.0'; // 每次發布跟 android/build.sh 的 VERSION_NAME 一起改
 $('appVer').textContent='版本 '+APP_VER;
 setTheme(store('lucky.theme')||'auto');
 renderHist(); renderAll(false);
+if(scratchMode)setScratchMode(true);
 if(!store('lucky.intro')){$('introBar').hidden=false;$('introOk').onclick=()=>{store('lucky.intro',1);$('introBar').hidden=true}}
 </script>
 
