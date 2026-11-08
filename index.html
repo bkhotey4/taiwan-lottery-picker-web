@@ -99,6 +99,8 @@ h2{font-size:15px;margin:0;letter-spacing:.04em}
 #freqZ2 h3{font-size:13px;margin:6px 0 4px;color:var(--muted);font-weight:500}
 .head-row{display:flex;justify-content:space-between;align-items:flex-start;gap:12px}
 .install{flex:none;font:inherit;font-weight:700;font-size:14px;background:var(--ink);color:var(--paper);border:0;border-radius:999px;padding:8px 14px;cursor:pointer;margin-top:6px}
+.install-btns{display:flex;flex-direction:column;align-items:flex-end;gap:6px}
+.install.alt{background:var(--paper);color:var(--ink);border:1.5px solid var(--line);text-decoration:none;margin-top:0}
 .install-hint{font-size:13px;color:var(--ink);background:var(--paper);border:1.5px solid var(--line);border-radius:10px;padding:10px 12px;margin:10px 0 0}
 /* 版面：手機一欄（兩個 .col 攤平成同一層）＋跳轉按鈕黏在上方；寬螢幕左右兩欄，左欄固定 */
 .col{display:contents}
@@ -157,9 +159,13 @@ body.can-save .save{display:inline-block}
         <h1>今晚<span>號碼</span>機</h1>
         <p>台灣彩券隨機選號，自己玩的娛樂工具</p>
       </div>
-      <button type="button" class="install" id="installBtn" hidden>安裝 App</button>
+      <div class="install-btns">
+        <button type="button" class="install" id="installBtn" hidden>安裝 App</button>
+        <a class="install alt" id="apkBtn" hidden href="https://github.com/bkhotey4/taiwan-lottery-picker-web/releases/latest/download/lotto-picker.apk">下載 Android App</a>
+      </div>
     </div>
     <p class="install-hint" id="installHint" hidden>iPhone／iPad：用 <b>Safari</b> 打開這個網頁 → 點下方的「分享」按鈕 → 選「加入主畫面」，主畫面就會出現號碼機的圖示。</p>
+    <p class="install-hint" id="apkHint" hidden>下載後打開 <b>lotto-picker.apk</b> 安裝。第一次安裝時手機會問要不要允許「安裝不明應用程式」，允許你用來下載的瀏覽器即可；這個 App 沒有上架 Google Play，所以 Play 安全防護可能會提醒，按「仍要安裝」。</p>
   </header>
 
   <div class="tabs" role="group" aria-label="選擇彩種" id="tabs"></div>
@@ -793,6 +799,10 @@ if(!window.claude&&location.protocol==='https:'){
   addEventListener('beforeinstallprompt',e=>{e.preventDefault();deferred=e;if(!installed)$('installBtn').hidden=false});
   addEventListener('appinstalled',()=>{$('installBtn').hidden=true;$('installHint').hidden=true});
   if(ios&&!installed)$('installBtn').hidden=false; // iPhone 沒有安裝視窗，按了顯示「加入主畫面」教學
+  if(/android/i.test(navigator.userAgent)&&!installed){ // Android 也可以直接下載 APK
+    $('apkBtn').hidden=false;
+    $('apkBtn').addEventListener('click',()=>{$('apkHint').hidden=false});
+  }
   $('installBtn').onclick=async()=>{
     if(deferred){deferred.prompt();const r=await deferred.userChoice.catch(()=>null);deferred=null;if(r&&r.outcome==='accepted')$('installBtn').hidden=true}
     else $('installHint').hidden=!$('installHint').hidden;
