@@ -544,6 +544,7 @@ body.can-save .save{display:inline-block}
     <div class="chance-box">
       <h2>這次選的號碼，中獎機率</h2>
       <p class="chance-line" id="chanceLine"></p>
+      <p class="rule math-check" id="mathCheckLine"></p>
       <details class="chance-more" id="chanceMore"><summary>看明細</summary><div class="odds" id="chance"></div></details>
     </div>
     <div class="latest-box" id="latest" hidden>
@@ -682,7 +683,8 @@ body.can-save .save{display:inline-block}
       </div>
       <div class="row pick-tools">
         <div class="tool-btns">
-          <button type="button" class="ghost" id="exportBtn">匯出</button>
+          <button type="button" class="ghost" id="exportBtn">匯出 JSON</button>
+          <button type="button" class="ghost" id="exportCsvBtn">匯出 CSV（Excel）</button>
           <button type="button" class="ghost" id="importBtn">匯入</button>
         </div>
         <span class="rule" id="toolMsg"></span>
@@ -1651,6 +1653,7 @@ function renderChance(){
   $('chanceLine').innerHTML=n>1?`這 ${n} 組：至少中一個獎 <b>${optOk?(lastOpt.exact?'':'約 ')+pct(lastOpt.opt):(t.list.length>1?'約 ':'')+pct(t.list.length>1?any:jp)}</b>`+(optOk?`（隨機買約 ${pct(any)}）`:'')+` · 中${top} <b>${oneIn(jp)}</b>`
     :`這一組：中任一獎 <b>${oneIn(p)}</b> · 中${top} <b>${oneIn(jp)}</b>`;
   $('chanceLine').innerHTML+=` · 要花 <b>${(n*PRICE[cur]).toLocaleString('en-US')}</b> 元（每注 ${PRICE[cur]} 元）`;
+  if($('mathCheckLine'))$('mathCheckLine').innerHTML=g.digits||!last.length?'':mathStructSummary(cur,last);
   $('chance').innerHTML=cards.map(([l,v,s,h])=>`<div${h?' class="hl"':''}><small>${l}</small><strong>${v}</strong><em>${s}</em></div>`).join('');
   let anyPari=false;
   $('tierRows').innerHTML=t.list.map(([nm,d,c])=>{const a=tierAmount(cur,nm); if(a&&a.pari)anyPari=true;
@@ -1693,6 +1696,26 @@ function parseMust(g){
 }
 // ---- 避開熱門選法：很多人會選的組合（只影響萬一中獎時要不要跟人平分，不影響機率） ----
 let avoid=!!store('lucky.avoid');
+function acVal(s){const d=new Set();for(let i=0;i<s.length;i++)for(let j=i+1;j<s.length;j++)d.add(Math.abs(s[j]-s[i]));return d.size-(s.length-1)}
+function mathStructSummary(id,sets){
+  const g=GAMES[id]; if(g.digits||!sets.length)return '';
+  const k=g.z1.n, N=g.z1.max, expSum=k*(N+1)/2, r=cleanDraw(latest[id]), prevSet=new Set(r?[...r.numbers,...(r.special&&id==='lotto'?[r.special]:[])]:[]);
+  const minAc=k>=6?6:4, nZones=Math.floor(N/10)+1;
+  let sumTot=0, acTot=0, consecN=0, tailN=0, voidN=0, repN=0, highN=0;
+  for(const x of sets){
+    const s=[...x.z1].sort((a,b)=>a-b);
+    sumTot+=s.reduce((a,b)=>a+b,0); acTot+=acVal(s);
+    if(s.some((v,i)=>i>0&&v===s[i-1]+1))consecN++;
+    if(new Set(s.map(v=>v%10)).size<s.length)tailN++;
+    if(new Set(s.map(v=>Math.floor(v/10))).size<nZones)voidN++;
+    if(s.some(v=>prevSet.has(v)))repN++;
+    highN+=s.filter(v=>v>31).length;
+  }
+  const m=sets.length, avgSum=Math.round(sumTot/m), avgAc=(acTot/m).toFixed(1), avgHigh=(highN/m).toFixed(1);
+  return `📐 <b>數學典型集體檢</b>（對照歷年開獎實證）：平均和值 <b>${avgSum}</b>（理論 ${expSum.toFixed(0)}）· 算術複雜度 <b>AC=${avgAc}</b>（≥${minAc} 為高熵典型集 ${acTot/m>=minAc?'✓':'⚠️'}）· 大號(>31)平均 <b>${avgHigh}</b> 顆 · `+
+    (m===1?`${consecN?'含連號':'無連號'}（實證 50% 期數有）· ${tailN?'含同尾數 ✓':'無同尾數'}（實證 80% 期數有）· ${voidN?'有十位斷區 ✓':'無斷區'}（實證 87% 期數有）`+(prevSet.size?` · ${repN?'含上期號碼 ✓（少人選溢價）':'無上期號碼'}（實證 62% 期數有）`:'')
+    :`含連號 <b>${consecN}/${m}</b> 組 · 含同尾數 <b>${tailN}/${m}</b> 組 · 十位斷區 <b>${voidN}/${m}</b> 組`+(prevSet.size?` · 含上期重號 <b>${repN}/${m}</b> 組`:''));
+}
 function isPopular(id,z1){
   const s=[...z1].sort((a,b)=>a-b);
   // 1. 生日號碼：全部或幾乎全部在 01–31
@@ -1700,8 +1723,9 @@ function isPopular(id,z1){
   if(high<(id==='lotto'?2:1))return true;
   // 2. 三個以上連號
   for(let i=2;i<s.length;i++)if(s[i]===s[i-1]+1&&s[i-1]===s[i-2]+1)return true;
-  // 3. 等差排列（例如 05 10 15 20…，彩券上常是一直線）
+  // 3. 等差排列或低熵規則圖形（AC 算術複雜度過低，例如兩組等差 05 10 15 22 27 32，在 2,185 期中佔比不到 1.5% 且極易撞號）
   const d=s[1]-s[0]; if(s.every((v,i)=>i===0||v-s[i-1]===d))return true;
+  if(acVal(s)<(s.length>=6?5:3))return true;
   // 4. 尾數全部一樣，或 4 個以上同尾數
   const tails={}; s.forEach(v=>tails[v%10]=(tails[v%10]||0)+1); if(Math.max(...Object.values(tails))>=4)return true;
   // 5. 照抄上一期：和最新一期重複 4 個以上
@@ -2193,16 +2217,21 @@ function popScore(id,z1){ // 分數越高 = 越像很多人會選的組合（估
   }else{ // 沒有資料時的備用估計：生日、月份、幸運數字
     sc+=birth*1+month*0.5+s.filter(v=>LUCKY.has(v)).length*0.3;
   }
-  let pairs=0; for(let i=1;i<s.length;i++)if(s[i]===s[i-1]+1)pairs++; sc+=pairs*0.8;
-  const tails={}; s.forEach(v=>tails[v%10]=(tails[v%10]||0)+1); const sameTail=Object.values(tails).reduce((a,c)=>a+Math.max(0,c-1),0); sc+=sameTail*0.5;
+  // 2,185 期實證：50.5% 期數有連號、80.3% 有同尾數；單組大號連號或單組同尾屬於自然典型集，不扣分；多組連號／多組同尾或低 AC 複雜度才扣分
+  let pairs=0, lowPairs=0; for(let i=1;i<s.length;i++)if(s[i]===s[i-1]+1){pairs++;if(s[i]<=31)lowPairs++}
+  sc+=lowPairs*0.8+Math.max(0,pairs-1)*1.2;
+  const tails={}; s.forEach(v=>tails[v%10]=(tails[v%10]||0)+1); const sameTail=Object.values(tails).reduce((a,c)=>a+Math.max(0,c-1),0);
+  sc+=Math.max(0,sameTail-1)*0.7;
+  const ac=acVal(s), minAc=s.length>=6?6:4; if(ac<minAc)sc+=(minAc-ac)*1.5;
   const r=cleanDraw(latest[id]); const copy=r?s.filter(v=>r.numbers.includes(v)).length:0;
   // 實證（台彩全部期數）：開出 1–2 個上期號碼的期數，中獎人數少約 4–6%，大家會避開剛開過的號碼，所以這是「少人選」；3 個以上才像照抄
   const repPct=pd&&pd.rep&&copy>0&&copy<3?(pd.rep[Math.min(copy,pd.rep.length)-1]||0):0;
   if(copy>=3)sc+=(copy-2)*5; else if(repPct){sc+=Math.log(1+repPct/100)*30; if(est!==null)est=(1+est)*(1+repPct/100)-1}
-  const high=g.z1.n-birth;
+  const high=g.z1.n-birth, sm=s.reduce((a,b)=>a+b,0);
   if(est!==null)why.push(`依中獎人數推算，選這些號碼的人比平均${est<0?'少':'多'}約 ${Math.abs(Math.round(est*100))}%`);
   else why.push(high?`${high} 個號碼大於 31（生日選不到）`:'都在 31 以內');
-  why.push(pairs?`${pairs} 組相鄰號碼`:'沒有連號');
+  why.push(`和值 ${sm}・AC=${ac}`);
+  if(pairs)why.push(`${pairs} 組連號（實證 50% 期數有）`);
   if(copy)why.push(copy>=3?`和上一期重複 ${copy} 個（太像照抄）`:repPct?`含 ${copy} 個上期號碼（大家會避開，中獎人數少約 ${Math.abs(Math.round(repPct))}%）`:`和上一期重複 ${copy} 個`);
   return{sc,why};
 }
@@ -2456,6 +2485,8 @@ const RESEARCH=[
   {who:'Haigh（1997）',what:'Journal of the Royal Statistical Society A〈The Statistics of the National Lottery〉',games:'英國樂透',method:'隨機性檢定＋玩家選號模型',finding:'開獎號碼符合隨機；玩家選號不隨機，但各種選號模型都還有缺陷',url:'https://doi.org/10.1111/1467-985X.00056',ours:'學界研究與檢定、熱門度推算'},
   {who:'Cox、Daniell、Nicole（1998）',what:'Journal of the Royal Statistical Society D，47 卷（1998）〈Using maximum entropy to double one’s expected winnings in the UK National Lottery〉',games:'英國樂透',method:'最大熵估計每個號碼的被選頻率',finding:'只用中獎人數與銷售額估出每組號碼的熱門程度；玩家偏好選號單中間的號碼；挑少人選的組合，期望獎金約可加倍（中獎機率不變，只是少跟人平分）',url:'https://www.econbiz.de/Record/using-maximum-entropy-to-double-one-s-expected-winnings-in-the-uk-national-lottery-cox/10007348112',ours:'「挑少人選的號碼」、期望值的熱門倍數'},
   {who:'Baker & McHale（2009）',what:'Journal of the Royal Statistical Society A',games:'英國樂透',method:'中獎人數的統計模型',finding:'有意識選號讓各期中獎人數變異很大、各獎項人數高度相關，所以中獎人數可以反推選號偏好',url:'https://ideas.repec.org/a/bla/jorssa/v172y2009i4p813-834.html',ours:'「熱門號碼推算」的方法依據'},
+  {who:'Thaler & Ziemba（1988）',what:'Journal of Economic Perspectives〈Anomalies: Parimutuel Betting Markets: Racetracks and Lotteries〉',games:'6/49 樂透與彩池賽局',method:'Parimutuel 彩池套利與凱利動態配置',finding:'彩券平常是負期望值，但因為玩家集中選生日號與規則圖形，避開熱門號並在頭獎／貳獎累積溢價時出手，條件期望回報可大幅提高',url:'https://doi.org/10.1257/jep.2.2.161',ours:'「凱利動態決策面板」、「衝刺二三獎」與貳參肆獎冷門溢價'},
+  {who:'Schönheim（1964）& La Jolla Covering Repository',what:'Pacific Journal of Mathematics〈On Coverings〉與組合覆蓋設計表',games:'6/49、5/39 等樂透包牌',method:'(v, k, t, m) 覆蓋設計與 Steiner 系統',finding:'證明全包存在大量重疊浪費，可用正交覆蓋矩陣以最少注數保證「中 m 保 t」',url:'https://ljcr.dmgordon.org/cover/table.html',ours:'「包牌縮水（中m保t）」、「公用膽碼貳獎攔截網」與 5 膽 44 拖／4 膽 35 拖'},
   {who:'以色列樂透手選號碼研究',what:'Judgment and Decision Making 期刊',games:'以色列樂透',method:'分析玩家手選號碼',finding:'手選號碼有明顯模式（生日、圖形、連號等）',url:'https://www.cambridge.org/core/product/F7167C1DD46E4876DAFCDDD6CE8F238C/core-reader',ours:'「避開熱門選法」與「挑少人選的號碼」'}
 ];
 function normCdf(z){const t=1/(1+0.2316419*Math.abs(z)),d=0.3989423*Math.exp(-z*z/2),q=d*t*(0.3193815+t*(-0.3565638+t*(1.781478+t*(-1.821256+t*1.330274))));return z>0?1-q:q}
@@ -2484,6 +2515,10 @@ function academicTests(id){
   const eRep=(N-1)*n*n/max, vRep=(N-1)*n*(n/max)*((max-n)/max)*((max-n)/(max-1)); rows.push({name:'跟上一期重複的號碼數（期與期是否獨立）',res:`平均 ${(rep/(N-1)).toFixed(3)} 個（理論 ${(n*n/max).toFixed(3)}）`,p:p2((rep-eRep)/Math.sqrt(vRep))});
   const sums=ds.map(d=>d.nums.reduce((a,b)=>a+b,0)), r=corrLag1(sums); rows.push({name:'相鄰兩期號碼和的相關係數（相關分析）',res:`r=${r.toFixed(3)}`,p:p2(r*Math.sqrt(N))});
   const odd=ds.map(d=>d.nums.filter(v=>v%2).length), om=n/2, bits=odd.filter(x=>x!==om).map(x=>x>om); rows.push({name:'奇數多／偶數多交替的連串檢定（Wald–Wolfowitz）',res:`z=${runsZ(bits).toFixed(2)}`,p:p2(runsZ(bits))});
+  const expSum=n*(max+1)/2, varSum=n*(max*max-1)/12*(max-n)/(max-1), avgSum=sums.reduce((a,b)=>a+b,0)/N;
+  rows.push({name:'歷年號碼總和平均值（中央極限定理 CLT）',res:`實測 ${avgSum.toFixed(2)}（理論 ${expSum.toFixed(2)}）`,p:p2((avgSum-expSum)/Math.sqrt(varSum/N))});
+  const pConsec=1-comb(max-n+1,n)/comb(max,n), consecCnt=ds.filter(d=>{const s=[...d.nums].sort((a,b)=>a-b);return s.some((v,i)=>i>0&&v===s[i-1]+1)}).length;
+  rows.push({name:'含連號期數比例（線性空間無相鄰組合定理）',res:`實測 ${(consecCnt/N*100).toFixed(1)}%（理論 ${(pConsec*100).toFixed(1)}%）`,p:p2((consecCnt-N*pConsec)/Math.sqrt(N*pConsec*(1-pConsec)))});
   if(g.z2||id==='lotto'){const sp=ds.map(d=>d.sp).filter(v=>Number.isInteger(v)),K=id==='power'?8:max,cs=new Array(K+1).fill(0);sp.forEach(v=>cs[v]++);const E2=sp.length/K;let x2=0;for(let v=1;v<=K;v++)x2+=(cs[v]-E2)**2/E2;
     // 特別號／第二區每期只開 1 個，各期獨立，直接用標準卡方（不用校正）
     rows.push({name:id==='power'?'第二區 1–8 是否平均（卡方）':'特別號是否平均（卡方）',res:`χ²=${x2.toFixed(1)}（自由度 ${K-1}）`,p:chiP(x2,K-1)})}
@@ -2659,6 +2694,7 @@ function runCheck(){
   parts.push(`<p class="ck-nums">${nums}</p>`);
   parts.push(`<p>中獎機率跟任何一組都一樣：任一獎 <b>${oneIn(pAny)}</b>，${t.list[0][0]} <b>${oneIn(t.list[0][2]/t.total)}</b>。</p>`);
   if(!g.digits){
+    parts.push(`<p class="rule">${mathStructSummary(id,[r])}</p>`);
     const pd=popData(id);
     if(pd){
       const m=Math.exp(r.z1.reduce((a,v)=>a+Math.log(1+pd.w[v-1]/100),0)), d=Math.round((m-1)*100);
@@ -2754,6 +2790,31 @@ async function doExport(){
   // 都不行時：把文字放出來讓使用者自己複製
   $('ioBox').hidden=false; $('ioText').value=text; $('ioNote').textContent='沒辦法直接存成檔案，請複製上面整段文字保存。';
 }
+function doExportCsv(){
+  if(!picks.length)return toolMsg('還沒有存號碼可以匯出');
+  const esc=v=>`"${String(v??'').replace(/"/g,'""')}"`;
+  const head=['彩種','儲存日期','選號來源','主區號碼','第二區','狀態','對獎期別','開獎日期','對中說明','中獎獎項','花費(元)','實得獎金(元)'];
+  const lines=[head.map(esc).join(',')];
+  for(const p of picks){
+    const g=GAMES[p.game], st=drawForPick(p), sv=taipei(p.createdAt), src=PICK_SRC[p.src]||(p.rec?'挑少人選':p.manual?'自己輸入':'其他');
+    const nums=g.digits?p.z1.join(''):p.z1.map(v=>fmt(v,2)).join(' '), z2=p.z2.length?p.z2.map(v=>fmt(v,2)).join(' '):'';
+    let stateTxt=st.state==='drawn'?'已開獎':st.state==='pending'?'等開獎':'未定', pd='', dt='', hit='', pz='', gain='';
+    if(st.state==='drawn'){
+      const m=matchSet(p.game,{z1:p.z1,z2:p.z2},st.draw);
+      pd=st.draw.period||''; dt=st.draw.date||''; hit=m.hitTxt||''; pz=m.prize||'沒中獎';
+      const amt=m.prize&&st.draw.prizes?st.draw.prizes[m.prize]:0; gain=Number.isFinite(amt)?amt:'';
+    }
+    lines.push([g.name,sv.date,src,nums,z2,stateTxt,pd,dt,hit,pz,PRICE[p.game],gain].map(esc).join(','));
+  }
+  const csv='\uFEFF'+lines.join('\r\n'), name=`彩券號碼機-對獎紀錄-${taipei(new Date().toISOString()).date}.csv`;
+  if(NATIVE&&NATIVE.share){NATIVE.share(name,csv);return toolMsg('已開啟 CSV 分享')}
+  try{
+    const a=document.createElement('a'); a.href=URL.createObjectURL(new Blob([csv],{type:'text/csv;charset=utf-8'})); a.download=name;
+    document.body.appendChild(a); a.click(); a.remove(); setTimeout(()=>URL.revokeObjectURL(a.href),10000);
+    return toolMsg('已下載 '+name);
+  }catch(e){}
+  $('ioBox').hidden=false; $('ioText').value=csv; $('ioNote').textContent='請複製上方 CSV 文字貼入試算表。';
+}
 async function doImport(text){
   const note=t=>{$('ioNote').textContent=t};
   if(!picksCol)return note('目前沒辦法存號碼');
@@ -2778,6 +2839,7 @@ async function doImport(text){
 }
 function bindIO(){
   $('exportBtn').onclick=doExport;
+  if($('exportCsvBtn'))$('exportCsvBtn').onclick=doExportCsv;
   $('importBtn').onclick=()=>{$('ioBox').hidden=!$('ioBox').hidden;$('ioNote').textContent=''};
   $('ioClose').onclick=()=>{$('ioBox').hidden=true};
   $('ioFile').onchange=()=>{const f=$('ioFile').files[0];if(!f)return;
