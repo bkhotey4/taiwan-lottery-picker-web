@@ -1143,14 +1143,14 @@ const LAB_METHODS=[
   {id:'pagerank',name:'圖論傳導（PageRank）'},
   {id:'ising',name:'點互資訊配對（Ising 耦合）'},
   {id:'antipop',name:'反群眾（最少人選，中了少人分）'},
-  {id:'vote',name:'綜合評分（7 個模型投票）'},
+  {id:'vote',name:'綜合評分（10 個模型投票）'},
   {id:'hedge',name:'每日學習綜合（依表現調整權重）'}
 ];
-// 每日學習綜合（Hedge／乘法權重）：每期開獎後，7 個模型裡對中比平均多的權重變大、少的變小，下一期用加權投票
+// 每日學習綜合（Hedge／乘法權重）：每期開獎後，10 個模型裡對中比平均多的權重變大、少的變小，下一期用加權投票
 const HEDGE_ETA=0.05;
-const VOTE_FROM=['hot','recent','due','ml','bayes','markov','pair']; // 綜合評分：這些模型各選一組，被選中最多次的號碼優先（同票看貝氏分數）
+const VOTE_FROM=['hot','recent','due','ml','bayes','markov','pair','hazard','pagerank','ising']; // 綜合評分：這些模型各選一組，被選中最多次的號碼優先（同票看貝氏分數）
 // 數學模型的參數（scripts/ai-predict.mjs 有同一套，兩邊要一起改）
-const LAB_VER=6;           // 改了預測方法就加一，讓裝置上存的舊結果失效
+const LAB_VER=7;           // 改了預測方法就加一，讓裝置上存的舊結果失效
 const LAB_DECAY=0.97;       // 貝氏：每過一期，舊資料的權重乘上 0.97（約 33 期前的資料只剩一半影響力）
 const ML_FEATS=['基本傾向','近 10 期','近 50 期','歷年','遺漏期數'];
 function seeded(seed){let s=seed>>>0;return()=>{s=s+0x6D2B79F5|0;let t=Math.imul(s^s>>>15,1|s);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296}}
@@ -1587,11 +1587,12 @@ function statSets(g,n){
   const L=g.digits?runLabDigits(cur):runLab(cur); if(!L)return null;
   // 依序取各模型的號碼；不同模型算出同一組時跳過（之前會重複，買兩組等於買一組），模型用完還不夠就用「中獎機率最大」補
   const order=g.digits?L.next.map(p=>p.id):[...STAT_ORDER,...L.next.map(p=>p.id).filter(id=>!STAT_ORDER.includes(id))];
-  const out=[], seen=new Set();
+  // 威力彩只看第一區：第一區一樣、第二區不同的兩注，中頭獎或貳獎（第一區全中）的情況完全重疊，第二注對中百萬沒有幫助
+  const out=[], seen=new Set(), keyOf=s=>g.z2&&!g.digits?s.z1.slice().sort((x,y)=>x-y).join(','):asText(g,s);
   for(const id of order){if(out.length>=n)break; const p=L.next.find(x=>x.id===id); if(!p)continue;
-    const s={z1:p.z1.slice(),z2:p.z2?[p.z2]:[],must:[]}, key=asText(g,s); if(seen.has(key))continue; seen.add(key);
+    const s={z1:p.z1.slice(),z2:p.z2?[p.z2]:[],must:[]}, key=keyOf(s); if(seen.has(key))continue; seen.add(key);
     const r=L.rows.find(x=>x.id===id); out.push({...s,label:p.name,avg:r?r.avg:null,exp:L.expHits,unit:g.digits?'位':'個',votes:p.votes||null})}
-  if(out.length<n){const extra=maxWinSets(g,[],n).sets;for(const s of extra){if(out.length>=n)break;const key=asText(g,s);if(seen.has(key))continue;seen.add(key);out.push({z1:s.z1.slice(),z2:s.z2.slice(),must:[],label:'補足（中獎機率最大）',avg:null,exp:L.expHits})}}
+  if(out.length<n){const extra=maxWinSets(g,[],n).sets;for(const s of extra){if(out.length>=n)break;const key=keyOf(s);if(seen.has(key))continue;seen.add(key);out.push({z1:s.z1.slice(),z2:s.z2.slice(),must:[],label:'補足（中獎機率最大）',avg:null,exp:L.expHits})}}
   return out;
 }
 // 統計模型這幾組「至少中一個獎」的真實機率（組與組會重疊，不能當成各自獨立相加）
@@ -2194,7 +2195,7 @@ function renderEV(){
 }
 // ---- 今日數學模型預測：三種彩券的「每日學習綜合」下一期號碼 ----
 const MODEL_SHORT_D={hot:'各位熱門',recent:'近 50 期',due:'很久沒開',bayes:'貝氏',markov:'馬可夫鏈'};
-const MODEL_SHORT={hot:'歷年熱門',recent:'近 50 期',due:'遺漏',ml:'機器學習',bayes:'貝氏',markov:'馬可夫鏈',pair:'號碼配對'};
+const MODEL_SHORT={hot:'歷年熱門',recent:'近 50 期',due:'遺漏',ml:'機器學習',bayes:'貝氏',markov:'馬可夫鏈',pair:'號碼配對',hazard:'遺漏週期',pagerank:'PageRank',ising:'點互資訊'};
 let todaySets={}, todayTimer=null;
 function nextDrawOf(id){ // 下一次開獎的日期（台北時間；官方公布優先）
   const nd=nextDrawDay(id); if(!nd)return null; const day=nd.day;
@@ -2982,7 +2983,7 @@ function setStyle(v){
 }
 document.querySelectorAll('.style-sw button').forEach(b=>b.onclick=()=>setStyle(b.dataset.style));
 setStyle(store('lucky.style')||'b'); // 預設風格：B 彩券行
-const APP_VER='4.5'; // 每次發布跟 android/build.sh 的 VERSION_NAME 一起改
+const APP_VER='4.6'; // 每次發布跟 android/build.sh 的 VERSION_NAME 一起改
 $('appVer').textContent='版本 '+APP_VER;
 $('gearBtn').onclick=e=>{e.stopPropagation();const p=$('settingsPanel'),o=p.hidden;p.hidden=!o;$('gearBtn').setAttribute('aria-expanded',String(o))};
 document.addEventListener('click',e=>{const p=$('settingsPanel');if(!p.hidden&&!e.target.closest('#settingsPanel,#gearBtn')){p.hidden=true;$('gearBtn').setAttribute('aria-expanded','false')}});
