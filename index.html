@@ -1701,6 +1701,7 @@ function mathStructSummary(id,sets){
   const g=GAMES[id]; if(g.digits||!sets.length)return '';
   const k=g.z1.n, N=g.z1.max, expSum=k*(N+1)/2, r=cleanDraw(latest[id]), prevSet=new Set(r?[...r.numbers,...(r.special&&id==='lotto'?[r.special]:[])]:[]);
   const minAc=k>=6?6:4, nZones=Math.floor(N/10)+1;
+  const ep={lotto:{c:50,t:80,v:87,r:62},power:{c:59,t:78,v:55,r:72},d539:{c:44,t:62,v:72,r:52}}[id]||{c:50,t:80,v:80,r:60};
   let sumTot=0, acTot=0, consecN=0, tailN=0, voidN=0, repN=0, highN=0;
   for(const x of sets){
     const s=[...x.z1].sort((a,b)=>a-b);
@@ -1713,8 +1714,8 @@ function mathStructSummary(id,sets){
   }
   const m=sets.length, avgSum=Math.round(sumTot/m), avgAc=(acTot/m).toFixed(1), avgHigh=(highN/m).toFixed(1);
   return `📐 <b>數學典型集體檢</b>（對照歷年開獎實證）：平均和值 <b>${avgSum}</b>（理論 ${expSum.toFixed(0)}）· 算術複雜度 <b>AC=${avgAc}</b>（≥${minAc} 為高熵典型集 ${acTot/m>=minAc?'✓':'⚠️'}）· 大號(>31)平均 <b>${avgHigh}</b> 顆 · `+
-    (m===1?`${consecN?'含連號':'無連號'}（實證 50% 期數有）· ${tailN?'含同尾數 ✓':'無同尾數'}（實證 80% 期數有）· ${voidN?'有十位斷區 ✓':'無斷區'}（實證 87% 期數有）`+(prevSet.size?` · ${repN?'含上期號碼 ✓（少人選溢價）':'無上期號碼'}（實證 62% 期數有）`:'')
-    :`含連號 <b>${consecN}/${m}</b> 組 · 含同尾數 <b>${tailN}/${m}</b> 組 · 十位斷區 <b>${voidN}/${m}</b> 組`+(prevSet.size?` · 含上期重號 <b>${repN}/${m}</b> 組`:''));
+    (m===1?`${consecN?'含連號':'無連號'}（實證 ${ep.c}% 期數有）· ${tailN?'含同尾數 ✓':'無同尾數'}（實證 ${ep.t}% 期數有）· ${voidN?'有十位斷區 ✓':'無斷區'}（實證 ${ep.v}% 期數有）`+(prevSet.size?` · ${repN?'含上期號碼 ✓（少人選溢價）':'無上期號碼'}（實證 ${ep.r}% 期數有）`:'')
+    :`含連號 <b>${consecN}/${m}</b> 組（實證 ${ep.c}%） · 含同尾數 <b>${tailN}/${m}</b> 組（實證 ${ep.t}%） · 十位斷區 <b>${voidN}/${m}</b> 組（實證 ${ep.v}%）`+(prevSet.size?` · 含上期重號 <b>${repN}/${m}</b> 組（實證 ${ep.r}%）`:''));
 }
 function isPopular(id,z1){
   const s=[...z1].sort((a,b)=>a-b);
