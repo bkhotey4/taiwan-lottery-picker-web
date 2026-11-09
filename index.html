@@ -133,7 +133,7 @@ button:focus-visible,input:focus-visible,select:focus-visible{outline:3px solid 
 .sig-row .dot{width:12px;height:12px;border-radius:50%;margin-top:4px;background:var(--line);border:1px solid var(--muted)}
 .sig-row .dot.on{background:#22a55a;border-color:#1b8447}.sig-row .dot.stop{background:#d64545;border-color:#a83232}
 .sig-row b.nm{font-weight:700}.sig-row .st{font-weight:700}.sig-set{margin-top:10px;align-items:end}
-.sig-plays{display:flex;flex-wrap:wrap;gap:8px}.sig-out{margin-top:8px}
+.sig-plays{display:flex;flex-wrap:wrap;gap:8px}.sig-plays button{font-family:var(--f-body);padding:6px 12px;font-size:12px;font-weight:700;border-radius:20px;background:var(--paper);border:1.5px solid var(--line);cursor:pointer;transition:all .15s;color:var(--ink)}.sig-plays button:hover{background:var(--accent);color:var(--accent-ink);border-color:var(--accent)}.sig-out{margin-top:8px}
 .sig-out .tk{font-family:var(--f-num);font-size:13px;display:flex;flex-wrap:wrap;gap:4px 12px;margin:6px 0}
 .sig-out ul{margin:6px 0;padding-left:1.2em;font-size:13px;line-height:1.6}
 .win-rate:empty{display:none}
@@ -198,6 +198,11 @@ body.mode-scratch .col-main{position:static;max-height:none;overflow:visible}
 .ev-line{margin:8px 0 0;font-size:13px;line-height:1.6}
 .ev-line b{font-family:var(--f-num)}
 .ev-line:empty{display:none}
+.ev-kelly{margin:8px 0 6px;padding:8px 12px;border-radius:8px;font-size:12.5px;background:var(--bg);border-left:3.5px solid var(--muted);line-height:1.55}
+.ev-kelly.good{background:color-mix(in srgb,var(--pick) 12%,transparent);border-left-color:var(--pick);color:var(--ink)}
+.ev-kelly span{color:var(--muted);font-size:12px}
+.ev-kelly.good span{color:var(--ink)}
+.ev-kelly:empty{display:none}
 .more-box{margin-top:6px;font-size:13px}
 .more-box summary{cursor:pointer;font-weight:700;color:var(--muted);padding:6px 0}
 .ev-body b{font-family:var(--f-num)}
@@ -520,7 +525,7 @@ body.can-save .save{display:inline-block}
         </select>
       </label>
       <label class="field">選號目標
-        <select id="target"><option value="stat">統計模型（每期計算）</option><option value="max">中獎機率最大</option><option value="rand">純隨機</option></select>
+        <select id="target"><option value="stat">統計模型（每期計算）</option><option value="tier2">衝刺二三獎（集中火力／公用膽碼）</option><option value="max">中獎機率最大</option><option value="rand">純隨機</option></select>
       </label>
       <label class="field grow">必選號碼（選填，用空格或逗號分隔）
         <input id="must" inputmode="numeric" placeholder="例如 7 18">
@@ -577,6 +582,8 @@ body.can-save .save{display:inline-block}
     <h3 class="lab-h">一鍵玩法</h3>
     <div class="sig-plays">
       <button type="button" class="ghost" data-play="power">威力彩 正交輪配 8 注</button>
+      <button type="button" class="ghost" data-play="lotto">大樂透 5 膽全拖 44 注</button>
+      <button type="button" class="ghost" data-play="d539_4b">今彩539 4 膽全拖 35 注</button>
       <button type="button" class="ghost" data-play="d539">今彩539 7 碼連碰 21 注</button>
       <button type="button" class="ghost" data-play="s4">4星彩 包千位 10 注</button>
     </div>
@@ -610,6 +617,7 @@ body.can-save .save{display:inline-block}
     <div class="ev-bar" id="evBar" aria-hidden="true"></div>
     <div class="ev-scale" aria-hidden="true"><span>0</span><span>紅線＝平常</span><span>拿回 100%</span></div>
     <p class="ev-line" id="evLine"></p>
+    <div class="ev-kelly" id="evKelly"></div>
     <details class="more-box"><summary>看計算細節</summary>
       <div class="ev-body" id="evBody"></div>
       <div class="ev-log" id="evLog"></div>
@@ -697,7 +705,7 @@ body.can-save .save{display:inline-block}
     <div class="row"><h2>預測實驗室：這些方法真的猜得中嗎？</h2><span class="rule" id="labMeta"></span></div>
     <p class="rule">每種方法都只用「開獎前」已知的資料猜下一期，開獎後對獎，一期一期累積成績，再跟理論上的隨機選號比較。機器學習模型每開一期就用結果調整一次。</p>
     <div class="cmp-wrap"><table class="cmp lab">
-      <thead><tr><th>方法</th><th>平均對中</th><th>中獎比例</th><th>和隨機比</th></tr></thead>
+      <thead><tr><th>方法</th><th>平均對中</th><th>中獎比例</th><th id="labColBig">大獎（≥4碼）</th><th>和隨機比</th></tr></thead>
       <tbody id="labRows"></tbody>
     </table></div>
     <p class="freq-sum" id="labVerdict"></p>
@@ -1132,6 +1140,24 @@ function play539(){ // 挑 7 個比較少人選的號碼全包（C(7,5)=21 注�
   return{id:'d539',sets,cost,title:`今彩539 7 碼連碰：${nums.map(v=>fmt(v,2)).join(' ')}（比較少人選的號碼）全包 21 注`,
     lines:rows.map(x=>`7 個裡開出 ${x.j} 個（${oneIn(x.p)}）：${order.filter(k=>x.tl.c[k]).map(k=>`${k} ${x.tl.c[k]} 注`).join('、')}，稅後約 <b>${moneyX(x.tl.after)}</b>`).concat([`開出 1 個以下就全槓龜（約 ${pct(1-rows.reduce((a,x)=>a+x.p,0))}）`])};
 }
+function playLotto(){ // 5 顆膽碼固定，其餘 44 碼全拖（44 注）：中 5 膽就 1 注頭獎＋1 注貳獎＋42 注參獎
+  const pd=popData('lotto'), nums=Array.from({length:49},(_,i)=>i+1).sort((a,b)=>((pd?pd.w[a-1]:0)+(Math.random()-0.5)*14)-((pd?pd.w[b-1]:0)+(Math.random()-0.5)*14)).slice(0,5).sort((a,b)=>a-b);
+  const drag=Array.from({length:49},(_,i)=>i+1).filter(v=>!nums.includes(v));
+  const sets=drag.map(v=>({z1:[...nums,v].sort((a,b)=>a-b),z2:[]})), cost=sets.length*PRICE.lotto;
+  const rows=bankRows('lotto',5,44,1).map(x=>({...x,tl:bankTally('lotto',x.list)})).filter(x=>x.tl.after>0).sort((a,b)=>b.tl.after-a.tl.after);
+  const order=TIERS.lotto.list.map(x=>x[0]);
+  return{id:'lotto',sets,cost,title:`大樂透 5 膽全拖 44 注：膽碼 ${nums.map(v=>fmt(v,2)).join(' ')}，其餘 44 碼全拖`,
+    lines:rows.slice(0,5).map(x=>`5 膽中 ${x.r} 正選${x.label?`（${x.label}）`:''}（${oneIn(x.p)}）：${order.filter(k=>x.tl.c[k]).map(k=>`${k} ${x.tl.c[k]} 注`).join('、')}，稅後約 <b>${moneyX(x.tl.after)}</b>`).concat([`若 5 膽只中 2 正選以下就槓龜；5 膽全中免猜第 6 顆球直取頭貳獎`])};
+}
+function playD539_4b(){ // 4 顆膽碼固定，其餘 35 碼全拖（35 注）：中 4 膽就 1 注頭獎＋34 注貳獎；中 3 膽就 2 注貳獎＋33 注參獎
+  const pd=popData('d539'), nums=Array.from({length:39},(_,i)=>i+1).sort((a,b)=>((pd?pd.w[a-1]:0)+(Math.random()-0.5)*14)-((pd?pd.w[b-1]:0)+(Math.random()-0.5)*14)).slice(0,4).sort((a,b)=>a-b);
+  const drag=Array.from({length:39},(_,i)=>i+1).filter(v=>!nums.includes(v));
+  const sets=drag.map(v=>({z1:[...nums,v].sort((a,b)=>a-b),z2:[]})), cost=sets.length*PRICE.d539;
+  const rows=bankRows('d539',4,35,1).map(x=>({...x,tl:bankTally('d539',x.list)})).filter(x=>x.tl.after>0).sort((a,b)=>b.tl.after-a.tl.after);
+  const order=TIERS.d539.list.map(x=>x[0]);
+  return{id:'d539',sets,cost,title:`今彩539 4 膽全拖 35 注：膽碼 ${nums.map(v=>fmt(v,2)).join(' ')}，其餘 35 碼全拖`,
+    lines:rows.map(x=>`4 膽中 ${x.r} 顆（${oneIn(x.p)}）：${order.filter(k=>x.tl.c[k]).map(k=>`${k} ${x.tl.c[k]} 注`).join('、')}，稅後約 <b>${moneyX(x.tl.after)}</b>`).concat([`總中獎率高達 43.6%（將近一半期數回血或爆發賺錢）`])};
+}
 function playS4(){ // 後三碼固定、千位 0–9 全包：後三碼對中就 1 注壹獎＋9 注貳獎
   const t=[0,1,2].map(()=>Math.floor(Math.random()*10)), sets=Array.from({length:10},(_,d)=>({z1:[d,...t],z2:[]})), cost=10*PRICE.s4;
   const amt=nm=>{const a=tierAmount('s4',nm);return a?a.amt:0}, net=x=>x>5000?x*(1-EV_TAX):x, dist={};
@@ -1143,7 +1169,7 @@ function playS4(){ // 後三碼固定、千位 0–9 全包：後三碼對中就
     lines:lines.concat([`後兩碼沒中就全槓龜（約 ${pct(1-Object.values(dist).reduce((a,v)=>a+v.n,0)/10000)}）`,'貳獎每注 5,000 元剛好不用扣稅，但跟只買 1 注比，每花一塊錢平均拿回的錢一樣'])};
 }
 function renderPlay(kind){
-  const P=kind==='power'?playPower():kind==='d539'?play539():playS4(); playLast=P;
+  const P=kind==='power'?playPower():kind==='lotto'?playLotto():kind==='d539_4b'?playD539_4b():kind==='d539'?play539():playS4(); playLast=P;
   const g=GAMES[P.id], cap=capValue(), left=cap?cap-monthSpend().amt:null;
   $('playOut').innerHTML=`<p><b>${P.title}</b>：共 ${P.sets.length} 注，要花 <b>${P.cost.toLocaleString('en-US')}</b> 元${left!=null?`（這個月上限還剩 ${Math.max(0,left).toLocaleString('en-US')} 元${left<P.cost?'，<b>不夠了</b>':''}）`:''}</p>`+
     `<div class="tk">${P.sets.map(s2=>`<span>${asText(g,s2)}</span>`).join('')}</div><ul>${P.lines.map(l=>`<li>${l}</li>`).join('')}</ul>`+
@@ -1265,7 +1291,7 @@ const LAB_METHODS=[
 const HEDGE_ETA=0.05;
 const VOTE_FROM=['hot','recent','due','ml','bayes','markov','pair','hazard','pagerank','ising']; // 綜合評分：這些模型各選一組，被選中最多次的號碼優先（同票看貝氏分數）
 // 數學模型的參數（scripts/ai-predict.mjs 有同一套，兩邊要一起改）
-const LAB_VER=7;           // 改了預測方法就加一，讓裝置上存的舊結果失效
+const LAB_VER=8;           // 改了預測方法就加一，讓裝置上存的舊結果失效
 const LAB_DECAY=0.97;       // 貝氏：每過一期，舊資料的權重乘上 0.97（約 33 期前的資料只剩一半影響力）
 const ML_FEATS=['基本傾向','近 10 期','近 50 期','歷年','遺漏期數'];
 function seeded(seed){let s=seed>>>0;return()=>{s=s+0x6D2B79F5|0;let t=Math.imul(s^s>>>15,1|s);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296}}
@@ -1367,7 +1393,7 @@ function runLab(id){
     const sc={hot:v=>all[v],cold:v=>-all[v],recent:v=>r50[v],due:v=>i-last[v],ml:v=>score(feats(v,i)),bayes:v=>dec[v],markov:v=>markovScore(v,prev)}[m];
     return{z1:topN(max,n,sc),z2:z2pick(m,i,prev)};
   };
-  const res={}; LAB_METHODS.forEach(m=>res[m.id]={hits:0,prize:0,cnt:0,h1:0,c1:0,h2:0,c2:0});
+  const res={}; LAB_METHODS.forEach(m=>res[m.id]={hits:0,prize:0,cnt:0,h1:0,c1:0,h2:0,c2:0,big:0});
   const logs={}; // 最近幾期每種方法的預測與對獎（逐期紀錄）
   const total=draws.length-LAB_WARM, half=LAB_WARM+Math.floor(total/2);
   for(let i=0;i<draws.length;i++){
@@ -1378,6 +1404,7 @@ function runLab(id){
         const p=cache[m.id]=pick(m.id,i,prev,rng,cache), k=p.z1.filter(v=>set.has(v)).length;
         const spHit=id==='power'?p.z2===d.sp:id==='lotto'?p.z1.includes(d.sp):false;
         const r=res[m.id], pz=prizeName(id,k,spHit); r.hits+=k; r.cnt++; if(pz)r.prize++;
+        if(k>=4)r.big++;
         if(i>=draws.length-LAB_LOG){(logs[i]||(logs[i]={period:d.period,nums:d.nums,sp:d.sp,preds:{}})).preds[m.id]={z1:p.z1,z2:p.z2,k,spHit,prize:pz}}
         if(i<half){r.h1+=k;r.c1++}else{r.h2+=k;r.c2++}
       }
@@ -1410,9 +1437,11 @@ function runLab(id){
   const nc={}, next=LAB_METHODS.map(m=>({id:m.id,name:m.name,...(nc[m.id]=pick(m.id,N,lastD,nextRng,nc))}));
   const t=TIERS[id], pAny=t.list.reduce((s,x)=>s+x[2],0)/t.total;
   const expHits=n*n/max, varHits=n*base*((max-n)/max)*((max-n)/(max-1));
-  const rows=LAB_METHODS.map(m=>{const r=res[m.id],avg=r.hits/r.cnt,pr=r.prize/r.cnt;
-    return{...m,avg,pr,z:(avg-expHits)/Math.sqrt(varHits/r.cnt),zp:(pr-pAny)/Math.sqrt(pAny*(1-pAny)/r.cnt),a1:r.h1/r.c1,a2:r.h2/r.c2}});
-  const out=labCache[id]={key,id,draws:N,tested:total,from:draws[LAB_WARM].period,to:lastD.period,expHits,pAny,rows,next,w:w.slice(),hw:{...hw},log:Object.values(logs).reverse()};
+  const pBig = id==='d539' ? 171/575757 : id==='lotto' ? 13804/13983816 : 7633/2760681;
+  const expBig = total * pBig;
+  const rows=LAB_METHODS.map(m=>{const r=res[m.id],avg=r.hits/r.cnt,pr=r.prize/r.cnt,big=r.big;
+    return{...m,avg,pr,big,z:(avg-expHits)/Math.sqrt(varHits/r.cnt),zp:(pr-pAny)/Math.sqrt(pAny*(1-pAny)/r.cnt),a1:r.h1/r.c1,a2:r.h2/r.c2}});
+  const out=labCache[id]={key,id,draws:N,tested:total,from:draws[LAB_WARM].period,to:lastD.period,expHits,pAny,expBig,rows,next,w:w.slice(),hw:{...hw},log:Object.values(logs).reverse()};
   store('lucky.lab.'+id,out);
   return out;
 }
@@ -1506,11 +1535,11 @@ function runLabDigits(id){
     if(m==='tail'){let b=0;for(let x=1;x<100;x++)if(tailCnt[x]>tailCnt[b])b=x;
       return Array.from({length:D},(_,pos)=>pos===D-2?Math.floor(b/10):pos===D-1?b%10:arg(dec[pos]))}
   };
-  const res={}; DIG_METHODS.forEach(m=>res[m.id]={hits:0,prize:0,cnt:0});
+  const res={}; DIG_METHODS.forEach(m=>res[m.id]={hits:0,prize:0,cnt:0,big:0});
   for(let i=0;i<draws.length;i++){
     const d=draws[i], prev=i?draws[i-1]:null;
     if(i>=LAB_WARM){const rng=seeded(Number(d.period)||i), cache={};
-      for(const m of DIG_ORDER){const z=cache[m]=pick(m,i,prev,rng,cache);const r=res[m];r.cnt++;r.hits+=z.filter((v,k)=>v===d.nums[k]).length;if(digitPrize(D,z,d.nums))r.prize++}
+      for(const m of DIG_ORDER){const z=cache[m]=pick(m,i,prev,rng,cache);const r=res[m];r.cnt++;r.hits+=z.filter((v,k)=>v===d.nums[k]).length;const pz=digitPrize(D,z,d.nums);if(pz)r.prize++;if(pz==='壹獎'||pz==='貳獎')r.big++}
       let tot=0; for(const c of DIG_HV){const k=cache[c].filter((v,j)=>v===d.nums[j]).length;hw[c]*=Math.exp(HEDGE_ETA*(k-D/10));tot+=hw[c]} for(const c of DIG_HV)hw[c]/=tot;}
     tailCnt[d.nums[D-2]*10+d.nums[D-1]]++;
     for(let pos=0;pos<D;pos++){const v=d.nums[pos];for(let k=0;k<10;k++)dec[pos][k]*=LAB_DECAY;dec[pos][v]+=1;all[pos][v]++;r50[pos][v]++;last[pos][v]=i;if(prev)trans[pos][prev.nums[pos]][v]++;if(i>=50)r50[pos][draws[i-50].nums[pos]]--}
@@ -1518,18 +1547,20 @@ function runLabDigits(id){
   const N=draws.length, lastD=draws[N-1], nrng=seeded((Number(lastD.period)||N)+1), nc={};
   for(const m of DIG_ORDER)nc[m]=pick(m,N,lastD,nrng,nc);
   const t=TIERS[id], pAny=t.list.reduce((s2,x)=>s2+x[2],0)/t.total, expHits=D/10, varHits=D*0.1*0.9;
-  const rows=DIG_METHODS.map(m=>{const r=res[m.id],avg=r.hits/r.cnt,pr=r.prize/r.cnt;return{...m,avg,pr,z:(avg-expHits)/Math.sqrt(varHits/r.cnt),zp:(pr-pAny)/Math.sqrt(pAny*(1-pAny)/r.cnt)}});
+  const pBig=D===3?10/1000:10/10000, expBig=(N-LAB_WARM)*pBig;
+  const rows=DIG_METHODS.map(m=>{const r=res[m.id],avg=r.hits/r.cnt,pr=r.prize/r.cnt,big=r.big;return{...m,avg,pr,big,z:(avg-expHits)/Math.sqrt(varHits/r.cnt),zp:(pr-pAny)/Math.sqrt(pAny*(1-pAny)/r.cnt)}});
   const next=DIG_METHODS.map(m=>({id:m.id,name:m.name,z1:nc[m.id],z2:null}));
-  const out=labCache[id]={key,id,digits:true,draws:N,tested:N-LAB_WARM,to:lastD.period,expHits,pAny,rows,next,hw:{...hw}};
+  const out=labCache[id]={key,id,digits:true,draws:N,tested:N-LAB_WARM,to:lastD.period,expHits,pAny,expBig,rows,next,hw:{...hw}};
   store('lucky.lab.'+id,out); return out;
 }
 function renderLabDigits(){
   const box=$('labBox'), g=GAMES[cur], L=runLabDigits(cur); if(!L){box.hidden=true;return}
   box.hidden=false;
+  if($('labColBig'))$('labColBig').textContent='大獎（前兩獎）';
   $('labMeta').textContent=`回測 ${L.tested.toLocaleString('en-US')} 期`;
   const judge=z=>Math.abs(z)<2?['≈ 隨機','']:z>0?['偏高（運氣）','good']:['偏低（運氣）','bad'];
-  $('labRows').innerHTML=`<tr class="base"><td>理論值（隨機）</td><td>${L.expHits.toFixed(3)} 位</td><td>${pct(L.pAny)}</td><td>—</td></tr>`+
-    L.rows.map(r=>{const z=Math.abs(r.z)>=Math.abs(r.zp)?r.z:r.zp,[t,c]=judge(z);return`<tr><td>${r.name}</td><td>${r.avg.toFixed(3)} 位</td><td>${pct(r.pr)}</td><td class="${c}">${t}<br><span class="rule">z=${z>=0?'+':''}${z.toFixed(1)}</span></td></tr>`}).join('');
+  $('labRows').innerHTML=`<tr class="base"><td>理論值（隨機）</td><td>${L.expHits.toFixed(3)} 位</td><td>${pct(L.pAny)}</td><td>約 ${(L.expBig||0).toFixed(1)} 次</td><td>—</td></tr>`+
+    L.rows.map(r=>{const z=Math.abs(r.z)>=Math.abs(r.zp)?r.z:r.zp,[t,c]=judge(z);return`<tr><td>${r.name}</td><td>${r.avg.toFixed(3)} 位</td><td>${pct(r.pr)}</td><td class="${r.big>0?'best':''}">${r.big||0} 次</td><td class="${c}">${t}<br><span class="rule">z=${z>=0?'+':''}${z.toFixed(1)}</span></td></tr>`}).join('');
   const off=L.rows.filter(r=>Math.max(Math.abs(r.z),Math.abs(r.zp))>=2);
   $('labVerdict').innerHTML=`<b>結論：</b>${g.name}每一位都是 0–9 隨機開出，`+(off.length?`有 ${off.length} 種方法超過 2 個標準差，同時比很多方法時偶爾會出現，要看之後能不能維持。`:`${L.rows.length} 種方法都跟隨機選號沒有明顯差別。`)+`「平均對中」是依位置對中幾位（理論 ${L.expHits.toFixed(1)} 位）。`;
   $('labPreds').innerHTML=L.next.map((p,i)=>`<div class="pr"><span class="mname">${p.name}</span>${p.z1.map(v=>`<span class="ball sm">${v}</span>`).join('')}<button type="button" class="ghost save" data-pred="${i}">存這組</button></div>`).join('');
@@ -1541,10 +1572,11 @@ function renderLab(){
   if(g.digits)return renderLabDigits();
   const L=runLab(cur); if(!L){box.hidden=true;return}
   box.hidden=false;
+  if($('labColBig'))$('labColBig').textContent=cur==='d539'?'大獎（≥4碼／貳獎+）':'大獎（≥4碼／萬級+）';
   $('labMeta').textContent=`回測 ${L.tested.toLocaleString('en-US')} 期`;
   const judge=z=>Math.abs(z)<2?['≈ 隨機','']:z>0?['偏高（運氣）','good']:['偏低（運氣）','bad'];
-  $('labRows').innerHTML=`<tr class="base"><td>理論值（隨機）</td><td>${L.expHits.toFixed(3)}</td><td>${pct(L.pAny)}</td><td>—</td></tr>`+
-    L.rows.map(r=>{const z=Math.abs(r.z)>=Math.abs(r.zp)?r.z:r.zp,[t,c]=judge(z);return`<tr><td>${r.name}</td><td>${r.avg.toFixed(3)}</td><td>${pct(r.pr)}</td><td class="${c}">${t}<br><span class="rule">z=${z>=0?'+':''}${z.toFixed(1)}</span></td></tr>`}).join('');
+  $('labRows').innerHTML=`<tr class="base"><td>理論值（隨機）</td><td>${L.expHits.toFixed(3)}</td><td>${pct(L.pAny)}</td><td>約 ${(L.expBig||0).toFixed(1)} 次</td><td>—</td></tr>`+
+    L.rows.map(r=>{const z=Math.abs(r.z)>=Math.abs(r.zp)?r.z:r.zp,[t,c]=judge(z);return`<tr><td>${r.name}</td><td>${r.avg.toFixed(3)}</td><td>${pct(r.pr)}</td><td class="${r.big>0?'best':''}">${r.big||0} 次</td><td class="${c}">${t}<br><span class="rule">z=${z>=0?'+':''}${z.toFixed(1)}</span></td></tr>`}).join('');
   const off=L.rows.filter(r=>Math.max(Math.abs(r.z),Math.abs(r.zp))>=2);
   const best=[...L.rows].sort((a,b)=>b.avg-a.avg)[0];
   $('labVerdict').innerHTML=off.length===0
@@ -1694,10 +1726,10 @@ function draw(g,must,ctx){
   return{z1,z2,must};
 }
 // ---- 選號目標「中獎機率最大」：每一注機率不變，但讓多注「同時中獎」的情況盡量少，提高「至少中一個獎」 ----
-let target=['stat','max','rand'].includes(store('lucky.target'))?store('lucky.target'):'stat', lastOpt=null, lastStat=null;
+let target=['stat','tier2','max','rand'].includes(store('lucky.target'))?store('lucky.target'):'stat', lastOpt=null, lastStat=null;
 let MAXWIN_MS=350; // 「中獎機率最大」模擬退火的時間上限（毫秒）
-// 統計模型：用到最新一期為止的開獎資料算出的號碼（預測實驗室的模型），多組時每組來自不同模型
-const STAT_ORDER=['hedge','vote','bayes','markov','pair','ml','recent','hot','due','cold','struct','repeat'];
+// 統計模型：用到最新一期為止的開獎資料算出的號碼（預測實驗室的模型），多組時每組來自不同模型，優先採納高階現代模型
+const STAT_ORDER=['hedge','vote','ising','pagerank','hazard','antipop','bayes','markov','pair','ml','recent','hot','due','cold','struct','repeat'];
 function statSets(g,n){
   const L=g.digits?runLabDigits(cur):runLab(cur); if(!L)return null;
   // 依序取各模型的號碼；不同模型算出同一組時跳過（之前會重複，買兩組等於買一組），模型用完還不夠就用「中獎機率最大」補
@@ -1823,9 +1855,55 @@ function bindTarget(){
   $('target').value=target;
   $('target').onchange=()=>{target=$('target').value;store('lucky.target',target);renderAvoid();run(true)};
 }
+function tier2Sets(g,must,n){
+  if(g.digits){
+    const remD=g.digits-1; // 3星彩固定後2位，4星彩固定後3位
+    const t=Array.from({length:remD},()=>Math.floor(Math.random()*10));
+    const posName=g.digits===3?'百位':'千位', out=[];
+    for(let i=0;i<n;i++){
+      const d0=i%10;
+      out.push({z1:[d0,...t],z2:[],must:must||[],label:i===0?`${posName} ${d0}（後${remD}碼固定公用）`:`${posName} ${d0}`});
+    }
+    return out;
+  }
+  const anchorCount=g.z1.n===5?2:3;
+  let anchors=(must||[]).slice(0,anchorCount);
+  const pd=popData(cur);
+  if(anchors.length<anchorCount){
+    const pool=Array.from({length:g.z1.max},(_,i)=>i+1).filter(v=>!anchors.includes(v))
+      .sort((a,b)=>((pd?pd.w[a-1]:0)+(Math.random()-0.5)*14)-((pd?pd.w[b-1]:0)+(Math.random()-0.5)*14));
+    anchors=[...anchors,...pool.slice(0,anchorCount-anchors.length)].sort((a,b)=>a-b);
+  }
+  const remSlots=g.z1.n-anchorCount, candPool=Array.from({length:g.z1.max},(_,i)=>i+1).filter(v=>!anchors.includes(v));
+  for(let i=candPool.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[candPool[i],candPool[j]]=[candPool[j],candPool[i]]}
+  let pIdx=0; const out=[], seen=new Set();
+  const keyOf=s=>g.z2?s.z1.join(',')+'|'+s.z2[0]:s.z1.join(',');
+  for(let i=0;i<n;i++){
+    for(let attempt=0;attempt<200;attempt++){
+      const tr=[];
+      for(let s=0;s<remSlots;s++){
+        if(pIdx>=candPool.length){
+          pIdx=0;
+          for(let k=candPool.length-1;k>0;k--){const j=Math.floor(Math.random()*(k+1));[candPool[k],candPool[j]]=[candPool[j],candPool[k]]}
+        }
+        tr.push(candPool[pIdx++]);
+      }
+      const z1=[...anchors,...tr].sort((a,b)=>a-b);
+      const z2=g.z2?[(i%g.z2.max)+1]:[];
+      const s={z1,z2};
+      if(!seen.has(keyOf(s))){
+        seen.add(keyOf(s));
+        out.push({z1,z2,must:anchors,label:i===0?`公用核心膽碼（${anchors.map(v=>fmt(v,2)).join(' ')}）`:`拖碼輪配組 ${i+1}`});
+        break;
+      }
+    }
+  }
+  return out;
+}
 // 開 n 組：保證不會有兩組完全一樣；開了不重疊時記錄用過的號碼
 function drawSets(g,must,n){
   lastOpt=null; lastStat=null;
+  if(target==='tier2'){const ss=tier2Sets(g,must,n);const u=unionProb(cur,ss);lastOpt={sets:ss,opt:u.p,exact:u.exact,tier2:true};return ss}
   if(target==='stat'){const ss=statSets(g,n);if(ss){lastStat={L:labCache[cur]};if(n>1){const u=unionProb(cur,ss);lastOpt={sets:ss,opt:u.p,exact:u.exact,stat:true}}return ss}}
   if((target==='max'||target==='stat')&&n>1){const r=maxWinSets(g,must,n);lastOpt=r;return r.sets}
   const ctx={spread:spread&&!g.digits,used:new Map(),used2:new Map()}, keys=new Set(), out=[];
@@ -1855,6 +1933,7 @@ function run(anim,log=anim){
   {const t=new Date(Date.now()+8*3600e3), hm=`${String(t.getUTCHours()).padStart(2,'0')}:${String(t.getUTCMinutes()).padStart(2,'0')}`;
    const L0=lastStat&&lastStat.L;
    $('setsInfo').innerHTML=L0?`<b>統計模型算出的號碼</b> · 用到 ${rocYear(L0.to)} 年第 ${Number(L0.to)%1e6} 期為止 ${L0.draws.toLocaleString('en-US')} 期開獎計算 · 新開獎後自動重算<br><span>不是亂數：每組來自不同模型。模型回測都跟隨機差不多，詳見「分析工具 → 預測實驗室」</span>`
+     :target==='tier2'?`<b>衝刺貳獎（集中火力模式）</b> · ${hm} 選的 · 包含公用核心膽碼 · 專攻貳獎與二三獎連鎖<br><span>${g.digits?'每注固定後位公用膽碼，輪配首位達成二三獎全包斷崖套利':(g.z2?'每組共享公用膽碼，膽碼命中時多注將同時中獎（連鎖爆發）；威力彩第二區自動採正交輪配':'每組共享公用膽碼，膽碼命中時多注將同時中獎（連鎖爆發）')}</span>`
      :target==='stat'?`<b>統計資料載入中…</b>（先顯示中獎機率最大的組合，資料載入後會自動換成統計模型的號碼）`
      :lastOpt?`<b>中獎機率最大的組合</b> · ${hm} 選的 · 按「重新選號」再選一次<br><span>每組盡量不會同時中獎，「至少中一個獎」比隨機買高；可以指定必選號碼</span>`
      :`<b>隨機號碼</b> · ${hm} 抽的 · 按「重新選號」再抽一次<br><span>純隨機、可以指定必選號碼；想挑比較少人選的，用右邊「挑號碼」分頁的「挑少人選的號碼」</span>`}
@@ -1974,7 +2053,7 @@ function cleanDraw(d){
 }
 
 // ---- 我存的號碼：存在 data/users/<自己>/profile/picks，只有自己看得到 ----
-const MAX_PICKS=100, CUTOFF_HOUR=20; // 晚上 8 點停售，之後存的算下一期
+const MAX_PICKS=200, CUTOFF_HOUR=20; // 晚上 8 點停售，之後存的算下一期
 let picksCol=null, picks=[], picksReady=false;
 function taipei(iso){const t=new Date(new Date(iso).getTime()+8*3600e3);return{date:t.toISOString().slice(0,10),hour:t.getUTCHours()}}
 function pickKey(game,z1,z2){return game+':'+z1.join(',')+'|'+z2.join(',')}
@@ -2284,8 +2363,9 @@ function renderEV(){
   box.hidden=false;
   const yuan=x=>Math.round(x).toLocaleString('en-US')+' 元', pc=x=>Math.round(x*100)+'%';
   const verdict=e.ret>=1?['期望值超過票價（很少見）','good']:e.ret>=e.baseRet*1.25?['比平常划算','good']:e.ret>=e.baseRet*1.05?['比平常好一點','']:['普通（跟平常差不多）',''];
+  const secBadge=e.sec&&e.sec.carry>0?`<span class="ev-tag good" title="貳獎連槓 ${e.sec.streak} 期，總額估計約 ${money(e.sec.pool)}">🎯 貳獎連 ${e.sec.streak} 槓（累積 ${money(e.sec.carry)}）</span>`:e.sec&&e.sec.pool>=1e7?`<span class="ev-tag good" title="貳獎總額估計約 ${money(e.sec.pool)}">🎯 貳獎總額破千萬（${money(e.sec.pool)}）</span>`:'';
   $('evMeta').textContent=g.name;
-  $('evHead').innerHTML=`每注 ${e.price} 元，平均拿回 <b>${e.ev.toFixed(1)} 元</b>（<b>${pc(e.ret)}</b>）<span class="ev-tag ${verdict[1]}">${verdict[0]}</span>`;
+  $('evHead').innerHTML=`每注 ${e.price} 元，平均拿回 <b>${e.ev.toFixed(1)} 元</b>（<b>${pc(e.ret)}</b>）<span class="ev-tag ${verdict[1]}">${verdict[0]}</span>${secBadge}`;
   $('evBar').innerHTML=`<span class="fill" style="width:${Math.min(100,e.ret*100).toFixed(1)}%"></span><span class="base" style="left:${Math.min(100,e.baseRet*100).toFixed(1)}%" title="平常"></span>`;
   const lines=[];
   if(cur==='d539'){const R=d539Rule(r.evd);lines.push(`頭獎每注 ${money(R.jp)}、合計最多 ${money(R.cap)}（${R.fromData?'依最近開獎推算':'公告值'}；太多人中會平分），不會累積，所以每期的期望值都差不多。`)}
@@ -2295,7 +2375,7 @@ function renderEV(){
       :`上期頭獎沒人中，這期頭獎估計約 <b>${money(e.pool)}</b>（累積 ${money(e.carry)}＋本期銷售撥入約 ${money(e.fresh)}）。`);
     lines.push(`頭獎剛被開走時（平常）約拿回 ${e.base.toFixed(1)} 元（${pc(e.baseRet)}）。頭獎要累積到約 <b>${money(e.breakeven)}</b>，平均拿回的錢才會回到 ${e.price} 元。`);
   }
-  if(e.sec&&e.sec.carry>0)lines.splice(1,0,`<b>貳獎已連 ${e.sec.streak} 期沒人中，累積 ${money(e.sec.carry)}</b>，這期貳獎總額估計約 <b>${money(e.sec.pool)}</b>（平常約 ${money(e.sec.typical)}），中 ${cur==='lotto'?'5 個＋特別號':'第一區 6 個'}就有機會${e.sec.pool>=1e6?'拿到百萬以上':''}；機率 ${oneIn(e.table[1].p)}，比頭獎容易 ${Math.round(e.table[1].p/e.table[0].p)} 倍。`);
+  if(e.sec&&e.sec.carry>0)lines.splice(1,0,`<b>貳獎已連 ${e.sec.streak} 期沒人中，累積 ${money(e.sec.carry)}</b>，這期貳獎總額估計約 <b>${money(e.sec.pool)}</b>（平常約 ${money(e.sec.typical)}），中 ${cur==='lotto'?'5 個＋特別號':'第一區 6 個'}就有機會${e.sec.pool>=1e6?'拿到百萬以上':''}；機率 ${oneIn(e.table[1].p)}，比頭獎容易 ${Math.round(e.table[1].p/e.table[0].p)} 倍。（建議：可將選號目標切換為「衝刺二三獎」，使用公用膽碼包牌集中火力）`);
   if(pd){const diff=(e.jpLeast/e.jpMost-1)*100;
     lines.push(`選號會影響平均拿回：最少人選的組合每注約 <b>${e.evLeast.toFixed(1)} 元</b>、一般 ${e.ev.toFixed(1)} 元、最多人選的約 ${e.evMost.toFixed(1)} 元${PARI[cur].length?`，差別主要來自${PARI[cur].join('、')}是「中的人平分」（台彩全部期數實證：大號多的期數，參獎／肆獎每注獎金比生日號多的期數高約 45%）`:''}。`);
     lines.push(`萬一中頭獎，平均實拿（扣稅、算進跟別人平分）：最少人選的組合約 <b>${money(e.jpLeast)}</b>、一般組合約 ${money(e.jpAvg)}、最多人選的組合約 ${money(e.jpMost)}，相差約 <b>${diff.toFixed(1)}%</b>。`+
@@ -2304,6 +2384,24 @@ function renderEV(){
   const tot=e.table.reduce((a,x)=>a+x.p*x.net,0), parts=e.table.map(x=>({n:x.name,v:x.p*x.net})).filter(x=>x.v>0);
   lines.push(`這 ${e.ev.toFixed(1)} 元是哪些獎給的：${parts.map(x=>`${x.n} ${x.v.toFixed(1)} 元（${Math.round(x.v/tot*100)}%）`).join('、')}。頭獎只佔 ${Math.round(parts[0].v/tot*100)}%，其他都是小獎累積的；但每注平均拿回仍然少於票價，所以靠小獎累積一樣是虧的。`);
   $('evLine').innerHTML=lines[0]||''; $('evBody').innerHTML=lines.slice(1).map(x=>`<p>${x}</p>`).join('');
+  const elKelly=$('evKelly');
+  if(elKelly){
+    if(e.ret>=1){
+      elKelly.className='ev-kelly good';
+      elKelly.innerHTML=`🚀 <b>凱利數學決策：正期望值窗口開啟！</b>（期望拿回 <b>${pc(e.ret)}</b>）<br><span>理論最佳策略：建議以娛樂預算的 1%～2% 啟用「衝刺二三獎」或「5 膽包牌」精確進攻。</span> <button type="button" class="ghost" id="evSwitchTier2" style="margin-left:6px;padding:3px 8px;font-size:11px;font-weight:700">一鍵切換衝刺二三獎</button>`;
+    }else if(e.sec&&e.sec.carry>0){
+      elKelly.className='ev-kelly good';
+      elKelly.innerHTML=`🎯 <b>凱利數學決策：貳獎連 ${e.sec.streak} 槓溢價中！</b>（累積 ${money(e.sec.carry)}）<br><span>貳獎難度遠低於頭獎，二獎池膨脹時是絕佳套利時機。</span> <button type="button" class="ghost" id="evSwitchTier2" style="margin-left:6px;padding:3px 8px;font-size:11px;font-weight:700">一鍵切換衝刺二三獎</button>`;
+    }else{
+      elKelly.className='ev-kelly';
+      elKelly.innerHTML=`💡 <b>凱利破產防禦：</b>當前期望值為票價的 <b>${pc(e.ret)}</b>（小於 100%）。<br><span>依凱利準則，常態負期望值下全押必敗；建議嚴格小額娛樂或休兵觀望，等待連槓正期望值窗口開啟。</span>`;
+    }
+    const bSw=$('evSwitchTier2');
+    if(bSw)bSw.onclick=()=>{
+      $('target').value='tier2'; target='tier2'; store('lucky.target','tier2'); renderAvoid(); run(true);
+      $('target').scrollIntoView({behavior:'smooth',block:'center'});
+    };
+  }
   // 每晚排程記錄的期望值走勢（ai.json）
   const log=aiData[cur]&&Array.isArray(aiData[cur].evLog)?aiData[cur].evLog.filter(x=>x&&Number.isFinite(Number(x.ret))).slice(-12):[];
   $('evLog').innerHTML=log.length?`<span class="lbl">每晚排程記錄的期望值：</span>`+log.map(x=>`<span class="chip" title="${String(x.madeAt||'').slice(0,10)}">第 ${(Number(x.afterPeriod)%1e6)+1} 期 ${Math.round(Number(x.ret)*100)}%</span>`).join(''):'';
@@ -2975,10 +3073,10 @@ function renderAvoid(){
   $('avoid').checked=avoid&&!off; $('avoid').disabled=off; $('avoidWrap').classList.toggle('off',off);
   $('avoidHint').textContent=off?`${g.name}獎金固定，不會跟別人平分，不需要避開`:'少選生日、連號、規則排列、照抄上一期，萬一中頭獎比較不會跟別人平分（中獎機率不變）';
   const tm=target!=='rand'; $('spread').disabled=off||tm; $('spreadWrap').classList.toggle('off',off||tm);
-  if(tm&&!off)$('spreadHint').textContent=target==='stat'?'統計模型的號碼由公式算出，不適用':'選號目標是「中獎機率最大」時已經包含這個效果（而且更好）';
-  if(target==='stat'&&!off){$('avoid').disabled=true;$('avoidWrap').classList.add('off');$('avoidHint').textContent='統計模型的號碼由公式算出，不適用'}
+  if(tm&&!off)$('spreadHint').textContent=target==='stat'?'統計模型的號碼由公式算出，不適用':target==='tier2'?'衝刺二三獎模式自動配置核心膽碼與互補拖碼，不適用分散':'選號目標是「中獎機率最大」時已經包含這個效果（而且更好）';
+  if((target==='stat'||target==='tier2')&&!off){$('avoid').disabled=true;$('avoidWrap').classList.add('off');$('avoidHint').textContent=target==='stat'?'統計模型的號碼由公式算出，不適用':'衝刺二三獎模式自動挑選核心公用膽碼，不需手動避開'}
   const on=[!off&&avoid&&'避開熱門',!off&&!tm&&spread&&'不重疊'].filter(Boolean);
-  $('optsSum').textContent=off?'更多選項（這個彩種不適用）':target==='stat'?'更多選項（統計模型不適用）':on.length?`更多選項（已開：${on.join('、')}）`:'更多選項（避開熱門、多組不重疊）';
+  $('optsSum').textContent=off?'更多選項（這個彩種不適用）':target==='stat'?'更多選項（統計模型不適用）':target==='tier2'?'更多選項（衝刺二三獎自動配置）':on.length?`更多選項（已開：${on.join('、')}）`:'更多選項（避開熱門、多組不重疊）';
 }
 function renderRule(){const g=GAMES[cur];syncCheck();renderResearch();if($('simOut')&&$('simOut').innerHTML)setTimeout(runSim,0);$('rule').innerHTML=`<span><b>${g.name}</b></span><span>${g.rule}</span>`;renderAvoid();renderNextDraw();renderWheel();renderFreq();renderLab();renderRecIntro();$('recOut').innerHTML='';
   $('must').placeholder=g.digits?'例如 7（從第一位開始指定）':'例如 7 18';
