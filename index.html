@@ -128,6 +128,14 @@ button:focus-visible,input:focus-visible,select:focus-visible{outline:3px solid 
 #nextDraw .warn{color:var(--accent);font-size:12px}
 #labBox.digits .ml-only{display:none}
 .today-list{display:grid;gap:10px;margin-top:8px}
+.sig-head{margin:4px 0 8px;font-size:15px;font-weight:700}.sig-list{display:grid;gap:6px}
+.sig-row{display:grid;grid-template-columns:auto 5.5em 1fr;gap:8px;align-items:start;font-size:13px;line-height:1.55}
+.sig-row .dot{width:12px;height:12px;border-radius:50%;margin-top:4px;background:var(--line);border:1px solid var(--muted)}
+.sig-row .dot.on{background:#22a55a;border-color:#1b8447}.sig-row .dot.stop{background:#d64545;border-color:#a83232}
+.sig-row b.nm{font-weight:700}.sig-row .st{font-weight:700}.sig-set{margin-top:10px;align-items:end}
+.sig-plays{display:flex;flex-wrap:wrap;gap:8px}.sig-out{margin-top:8px}
+.sig-out .tk{font-family:var(--f-num);font-size:13px;display:flex;flex-wrap:wrap;gap:4px 12px;margin:6px 0}
+.sig-out ul{margin:6px 0;padding-left:1.2em;font-size:13px;line-height:1.6}
 .win-rate:empty{display:none}
 .hitn{color:var(--accent-ink);background:var(--accent);border-radius:4px;padding:0 3px}
 .report{white-space:pre-wrap;font-family:var(--f-body);font-size:13px;background:var(--bg);border:1.5px dashed var(--line);border-radius:8px;padding:10px;margin:0}
@@ -558,6 +566,23 @@ body.can-save .save{display:inline-block}
     <button type="button" role="tab" data-tab="mine">我的號碼</button>
     <button type="button" role="tab" data-tab="ana">分析工具</button>
   </div>
+  <section class="slip sig" id="sigBox" data-tab="pick" aria-label="出手燈號">
+    <div class="row"><h2>出手燈號</h2><span class="rule" id="sigMeta"></span></div>
+    <p class="sig-head" id="sigHead"></p>
+    <div class="sig-list" id="sigList"></div>
+    <div class="controls sig-set">
+      <label class="field">我的娛樂日（每月幾號）<input id="funDay" type="number" min="0" max="31" inputmode="numeric" placeholder="不設定"></label>
+      <span class="rule" id="sigCap"></span>
+    </div>
+    <h3 class="lab-h">一鍵玩法</h3>
+    <div class="sig-plays">
+      <button type="button" class="ghost" data-play="power">威力彩 正交輪配 8 注</button>
+      <button type="button" class="ghost" data-play="d539">今彩539 7 碼連碰 21 注</button>
+      <button type="button" class="ghost" data-play="s4">4星彩 包千位 10 注</button>
+    </div>
+    <div class="sig-out" id="playOut"></div>
+    <p class="note">燈號不會讓中獎機率變高。綠燈只代表：有加碼或累積讓平均拿回比平常多，或是你自己訂的娛樂日。每一種玩法平均拿回的錢都一樣，長期都是虧的，請只用娛樂預算。</p>
+  </section>
   <section class="slip" id="todayBox" data-tab="pick" aria-label="今日數學模型預測">
     <div class="row"><h2>今日數學模型預測</h2><span class="rule" id="todayMeta"></span></div>
     <p class="rule">「每日學習綜合」：多個統計模型（3星／4星是每一位分開算）每期開獎後依實際表現自動調整權重（表現好的權重變大），再加權投票出下一期號碼。新開獎後自動重算。</p>
@@ -1045,6 +1070,96 @@ function wheelAll539(){
   $('wheelListSum').textContent=`展開全部 ${wheelLast.length} 注`;
   list.innerHTML=wheelLast.map((x,i)=>`<div><span>${String(i+1).padStart(4,' ')}</span><b>${x}</b></div>`).join('');
   $('wheelListWrap').hidden=false; $('wheelCopy').hidden=false; $('wheelCopied').textContent='';
+}
+// ---- 出手燈號：加碼期間、頭獎／貳獎累積讓期望值變高、自己訂的娛樂日 ----
+// 機率永遠不會變；綠燈只代表「平均拿回比平常多」或「今天是你的娛樂日」
+function taipeiToday(){const t=new Date(Date.now()+8*3600e3);return{y:t.getUTCFullYear(),m:t.getUTCMonth(),d:t.getUTCDate(),iso:t.toISOString().slice(0,10)}}
+function funDayValue(){const v=Math.floor(Number(store('lucky.funday')));return v>=1&&v<=31?v:0}
+function funDayInfo(){ // 娛樂日：大於當月天數就是月底
+  const f=funDayValue(); if(!f)return null; const t=taipeiToday(), dim=(y,m)=>new Date(Date.UTC(y,m+1,0)).getUTCDate();
+  const thisDay=Math.min(f,dim(t.y,t.m)); if(thisDay===t.d)return{today:true,days:0};
+  let y=t.y,m=t.m; if(thisDay<t.d){m++;if(m>11){m=0;y++}} const nd=Math.min(f,dim(y,m));
+  return{today:false,days:Math.round((Date.UTC(y,m,nd)-Date.UTC(t.y,t.m,t.d))/864e5),date:`${m+1}/${nd}`};
+}
+function gameSignal(id){
+  const g=GAMES[id], r=latest[id], why=[]; let on=false;
+  const od=official[id]&&official[id].nextDate;
+  if(od&&DRAW_DAYS[id]&&DRAW_DAYS[id].length<6){const [y,m,d]=od.split('-').map(Number),wd=new Date(Date.UTC(y,m-1,d)).getUTCDay();
+    if(!DRAW_DAYS[id].includes(wd)){on=true;why.push(`<b>加碼期間</b>：下一期 ${m}/${d}（${WD[wd]}）也開獎，平常只有${DRAW_DAYS[id].map(x=>'週'+WD[x]).join('、')}；春節等加碼時會天天開，另外有加碼獎`)}}
+  if(!g.digits&&r&&Array.isArray(r.evd)){
+    const pd=popData(id), e=evCalc(id,r.evd,pd&&pd.w,offJackpot(id));
+    if(e){
+      let jpS=0; for(const x of r.evd){if(!x||!(x.sell>0))break; if(x.winners>0)break; jpS++}
+      const up=e.baseRet>0?e.ret/e.baseRet-1:0;
+      if(id!=='d539'&&up>=0.3){on=true;why.push(`<b>頭獎累積</b>${jpS?`（連 ${jpS} 期沒人中）`:''}：這期 ${money(e.pool)}，平均拿回 ${Math.round(e.ret*100)}%，比平常多 ${Math.round(up*100)}%`)}
+      else if(id!=='d539'&&jpS>=3)why.push(`頭獎連 ${jpS} 期沒人中，但平均拿回只比平常多 ${Math.round(up*100)}%（還不到綠燈的 30%）`);
+      if(e.sec&&e.sec.streak>=2&&e.sec.pool>=2*e.sec.typical){on=true;why.push(`<b>貳獎連 ${e.sec.streak} 期沒人中</b>：這期貳獎總額約 ${money(e.sec.pool)}，平常約 ${money(e.sec.typical)}`)}
+      else if(e.sec&&e.sec.streak>=1)why.push(`貳獎連 ${e.sec.streak} 期沒人中，累積 ${money(e.sec.carry)}`);
+    }
+  }
+  return{on,why};
+}
+const SIG_GAMES=['lotto','power','d539','s4'];
+function renderSignal(){
+  const box=$('sigList'); if(!box)return;
+  const fd=funDayInfo(), cap=capValue(), sp=monthSpend(), over=overCap();
+  const rows=SIG_GAMES.map(id=>{const sg=gameSignal(id),nd=nextDrawOf(id),on=sg.on||(fd&&fd.today);
+    const why=[...sg.why]; if(fd&&fd.today)why.unshift('<b>今天是你的娛樂日</b>');
+    if(!why.length)why.push(GAMES[id].digits?'獎金固定，沒有累積或加碼，只看娛樂日':id==='d539'?'頭獎固定、不會累積，只看加碼或娛樂日':'沒有加碼，累積也還不多');
+    return{id,on,html:`<div class="sig-row"><span class="dot ${over?'stop':on?'on':''}" aria-hidden="true"></span><span><b class="nm">${GAMES[id].name}</b><br><span class="st">${over?'到上限':on?'綠燈':'休息'}</span></span><span>${why.join('；')}${nd?`<br><span class="rule">下一期 ${nd.text}</span>`:''}</span></div>`}});
+  box.innerHTML=rows.map(x=>x.html).join('');
+  const greens=rows.filter(x=>x.on).map(x=>GAMES[x.id].name);
+  $('sigHead').textContent=over?`這個月已經花到上限 ${cap.toLocaleString('en-US')} 元，先停手，下個月再玩。`:greens.length?`今天可以出手：${greens.join('、')}。`:`今天先休息。${fd?`下次娛樂日 ${fd.date}（${fd.days} 天後）。`:'可以在下面訂一個每月的娛樂日。'}`;
+  $('sigMeta').textContent=fd&&fd.today?'娛樂日':'';
+  $('sigCap').innerHTML=`這個月存了約 <b>${sp.amt.toLocaleString('en-US')}</b> 元${cap?`，上限 ${cap.toLocaleString('en-US')} 元（在「我的號碼」設定）`:'；可以在「我的號碼」設每月上限'}`;
+  const inp=$('funDay'); if(document.activeElement!==inp)inp.value=funDayValue()||'';
+}
+// ---- 一鍵玩法 ----
+let playLast=null;
+const moneyX=x=>x<1e6?Math.round(x).toLocaleString('en-US')+' 元':money(x); // 一鍵玩法：百萬以下顯示到元
+function playPower(){ // 8 組第一區各不相同，第二區 01–08 各配一組：第一區全中就一定是頭獎或貳獎
+  const g=GAMES.power, sets=maxWinSets(g,[],8).sets.slice(0,8).map((x,i)=>({z1:x.z1.slice().sort((a,b)=>a-b),z2:[i+1]}));
+  const C=comb(38,6), top=8/C, u=unionProb('power',sets), cost=8*PRICE.power;
+  return{id:'power',sets,cost,title:'威力彩 正交輪配：8 組不同的第一區，第二區 01–08 各配一組',
+    lines:[`中頭獎或貳獎（百萬以上）：<b>${oneIn(top)}</b>（同一組第一區配滿 8 個第二區只有 ${oneIn(1/C)}）`,`中頭獎：${oneIn(top/8)}`,`至少中一個獎：約 ${pct(u.p)}`,
+      `同樣花 ${cost} 元隨機買 8 注，中頭獎或貳獎也差不多是 ${oneIn(top)}：好處是不會浪費在同一組第一區`]};
+}
+function play539(){ // 挑 7 個比較少人選的號碼全包（C(7,5)=21 注）：中 3–4 個時一次中好幾注
+  const pd=popData('d539'), nums=Array.from({length:39},(_,i)=>i+1).sort((a,b)=>((pd?pd.w[a-1]:0)+(Math.random()-0.5)*14)-((pd?pd.w[b-1]:0)+(Math.random()-0.5)*14)).slice(0,7).sort((a,b)=>a-b);
+  const sets=combos(nums,5).map(z1=>({z1,z2:[]})), cost=sets.length*PRICE.d539;
+  const rows=bankRows('d539',0,7,1).map(x=>({...x,tl:bankTally('d539',x.list)})).filter(x=>x.tl.after>0).sort((a,b)=>b.tl.after-a.tl.after);
+  const order=TIERS.d539.list.map(x=>x[0]);
+  return{id:'d539',sets,cost,title:`今彩539 7 碼連碰：${nums.map(v=>fmt(v,2)).join(' ')}（比較少人選的號碼）全包 21 注`,
+    lines:rows.map(x=>`7 個裡開出 ${x.j} 個（${oneIn(x.p)}）：${order.filter(k=>x.tl.c[k]).map(k=>`${k} ${x.tl.c[k]} 注`).join('、')}，稅後約 <b>${moneyX(x.tl.after)}</b>`).concat([`開出 1 個以下就全槓龜（約 ${pct(1-rows.reduce((a,x)=>a+x.p,0))}）`])};
+}
+function playS4(){ // 後三碼固定、千位 0–9 全包：後三碼對中就 1 注壹獎＋9 注貳獎
+  const t=[0,1,2].map(()=>Math.floor(Math.random()*10)), sets=Array.from({length:10},(_,d)=>({z1:[d,...t],z2:[]})), cost=10*PRICE.s4;
+  const amt=nm=>{const a=tierAmount('s4',nm);return a?a.amt:0}, net=x=>x>5000?x*(1-EV_TAX):x, dist={};
+  for(let x=0;x<10000;x++){const dr=[Math.floor(x/1000),Math.floor(x/100)%10,Math.floor(x/10)%10,x%10];let tot=0;const c={};
+    for(const s2 of sets){const pz=digitPrize(4,s2.z1,dr);if(pz){c[pz]=(c[pz]||0)+1;tot+=net(amt(pz))}}
+    if(!tot)continue;const k=['壹獎','貳獎','參獎'].filter(z=>c[z]).map(z=>`${z} ${c[z]} 注`).join('、');(dist[k]||(dist[k]={n:0,tot}))&&dist[k].n++}
+  const lines=Object.entries(dist).sort((a,b)=>b[1].tot-a[1].tot).map(([k,v])=>`${oneIn(v.n/10000)}：${k}，稅後約 <b>${moneyX(v.tot)}</b>`);
+  return{id:'s4',sets,cost,title:`4星彩 包千位：後三碼 ${t.join('')}，千位 0–9 各一注`,
+    lines:lines.concat([`後兩碼沒中就全槓龜（約 ${pct(1-Object.values(dist).reduce((a,v)=>a+v.n,0)/10000)}）`,'貳獎每注 5,000 元剛好不用扣稅，但跟只買 1 注比，每花一塊錢平均拿回的錢一樣'])};
+}
+function renderPlay(kind){
+  const P=kind==='power'?playPower():kind==='d539'?play539():playS4(); playLast=P;
+  const g=GAMES[P.id], cap=capValue(), left=cap?cap-monthSpend().amt:null;
+  $('playOut').innerHTML=`<p><b>${P.title}</b>：共 ${P.sets.length} 注，要花 <b>${P.cost.toLocaleString('en-US')}</b> 元${left!=null?`（這個月上限還剩 ${Math.max(0,left).toLocaleString('en-US')} 元${left<P.cost?'，<b>不夠了</b>':''}）`:''}</p>`+
+    `<div class="tk">${P.sets.map(s2=>`<span>${asText(g,s2)}</span>`).join('')}</div><ul>${P.lines.map(l=>`<li>${l}</li>`).join('')}</ul>`+
+    `<div class="row"><button type="button" class="ghost" id="playSave">全部存起來對獎</button><button type="button" class="ghost" id="playAgain">換一組號碼</button><span class="rule" id="playMsg"></span></div>`;
+  $('playAgain').onclick=()=>renderPlay(kind);
+  $('playSave').onclick=async()=>{
+    if(cap&&monthSpend().amt+P.cost>cap&&!confirm(`存了會超過這個月的上限 ${cap.toLocaleString('en-US')} 元，還是要存嗎？`))return;
+    $('playSave').disabled=true; let ok=0,msg='';
+    for(const s2 of P.sets){const m=await savePick(P.id,s2.z1,s2.z2,{src:'play'});if(m.startsWith('已存'))ok++;else msg=m}
+    $('playMsg').textContent=ok?`存了 ${ok} 注${msg&&ok<P.sets.length?`（其他：${msg}）`:''}，開獎後會自動對獎`:msg; renderSignal();
+  };
+}
+function bindSignal(){
+  $('funDay').addEventListener('change',()=>{const v=Math.floor(Number($('funDay').value));store('lucky.funday',v>=1&&v<=31?v:0);renderSignal()});
+  document.querySelectorAll('[data-play]').forEach(b=>b.onclick=()=>renderPlay(b.dataset.play));
+  renderSignal();
 }
 function bindWheel(){ // 在頁面最後才呼叫（$ 定義之後）
 $('wheelAll539').onclick=wheelAll539;
@@ -1864,7 +1979,7 @@ let picksCol=null, picks=[], picksReady=false;
 function taipei(iso){const t=new Date(new Date(iso).getTime()+8*3600e3);return{date:t.toISOString().slice(0,10),hour:t.getUTCHours()}}
 function pickKey(game,z1,z2){return game+':'+z1.join(',')+'|'+z2.join(',')}
 // 存的號碼是怎麼來的（「我的勝率」依這個分組）
-const PICK_SRC={stat:'統計模型',max:'中獎機率最大',rand:'純隨機',rec:'挑少人選',lab:'預測實驗室',manual:'自己輸入'};
+const PICK_SRC={stat:'統計模型',max:'中獎機率最大',rand:'純隨機',rec:'挑少人選',lab:'預測實驗室',manual:'自己輸入',play:'一鍵玩法'};
 function cleanPick(p){
   if(!p||!GAMES[p.game])return null;
   const z1=(Array.isArray(p.z1)?p.z1:[]).map(Number).filter(Number.isInteger);
@@ -2831,7 +2946,7 @@ async function standalone(){
   res.forEach((r,i)=>{if(r.status==='fulfilled'&&r.value)latest[ids[i]]=r.value});
   latestFailed=!Object.keys(latest).length;
   liveAt=Date.now();
-  renderLatest(); renderPicks(); renderLab(); if(target==='stat'&&histData[cur])run(false,false); scheduleToday(); renderNextDraw(); renderResearch(); renderChance(); renderLife();
+  renderLatest(); renderPicks(); renderLab(); if(target==='stat'&&histData[cur])run(false,false); scheduleToday(); renderNextDraw(); renderResearch(); renderChance(); renderLife(); renderSignal();
 }
 
 // ---- 即時更新：頁面開著時，開獎時段每 5 分鐘、從別的 App 切回來時，重新抓開獎與 AI 預測 ----
@@ -2879,7 +2994,7 @@ $('go').onclick=()=>run(true);
 bindWheel();
 bindLab();
 bindManual();
-bindIO(); bindCap(); bindSim(); bindCheck(); bindTarget(); bindScratch(); bindLife(); bindReport();
+bindIO(); bindCap(); bindSim(); bindCheck(); bindTarget(); bindScratch(); bindLife(); bindReport(); bindSignal();
 $('recGo').onclick=doRecommend;
 renderRecTag();
 // ---- 可安裝的 App（https 網頁才能安裝；App 內建頁面是 file:） ----
@@ -2983,7 +3098,7 @@ function setStyle(v){
 }
 document.querySelectorAll('.style-sw button').forEach(b=>b.onclick=()=>setStyle(b.dataset.style));
 setStyle(store('lucky.style')||'b'); // 預設風格：B 彩券行
-const APP_VER='4.6'; // 每次發布跟 android/build.sh 的 VERSION_NAME 一起改
+const APP_VER='4.7'; // 每次發布跟 android/build.sh 的 VERSION_NAME 一起改
 $('appVer').textContent='版本 '+APP_VER;
 $('gearBtn').onclick=e=>{e.stopPropagation();const p=$('settingsPanel'),o=p.hidden;p.hidden=!o;$('gearBtn').setAttribute('aria-expanded',String(o))};
 document.addEventListener('click',e=>{const p=$('settingsPanel');if(!p.hidden&&!e.target.closest('#settingsPanel,#gearBtn')){p.hidden=true;$('gearBtn').setAttribute('aria-expanded','false')}});
