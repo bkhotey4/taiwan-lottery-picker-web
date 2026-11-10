@@ -768,6 +768,9 @@ body.can-save .save{display:inline-block}
     <p class="freq-sum" id="rsVerdict"></p>
     <h3 class="lab-h">玩家選號熱門度模型</h3>
     <p class="freq-sum" id="rsPop"></p>
+    <h3 class="lab-h">歷史回測：什麼時候真的划算</h3>
+    <p class="rule">本站自己的推導：<b>拿回率 ＝ 小獎回收 ＋ 0.796 ×（頭獎池 ÷ 本期銷售額）×（本期有人中頭獎的機率）</b>。0.796 是扣掉 20.4% 稅；「有人中頭獎的機率」＝ 1 − e<sup>−λ</sup>，λ ＝ 本期注數 × 單注頭獎機率。意思是：頭獎池相對銷售額越大越划算，但買的人越多越容易被平分。下面把這個公式套在台彩公布的每一期實際資料上。</p>
+    <div id="rsBT"><p class="rule">歷年資料載入後計算。</p></div>
     <h3 class="lab-h">四大數學與 AI 攻防體系</h3>
     <div class="rs-list">
       <div class="rs-item"><b>第一層：資金控管（凱利公式）</b><br><span class="rule">平常每注平均拿回都少於票價，凱利公式的最佳下注比例是 0（不買）。頭獎要累積到 <span id="rsBE">（計算中）</span>，平均拿回才會回本（本站「這期值不值得買」扣稅、算進平分後的實算，隨銷售額變動）；在那之前出手都是娛樂支出。</span></div>
@@ -1118,6 +1121,7 @@ function gameSignal(id){
   const od=official[id]&&official[id].nextDate;
   if(od&&DRAW_DAYS[id]&&DRAW_DAYS[id].length<6){const [y,m,d]=od.split('-').map(Number),wd=new Date(Date.UTC(y,m-1,d)).getUTCDay();
     if(!DRAW_DAYS[id].includes(wd)){on=true;why.push(`<b>加碼期間</b>：下一期 ${m}/${d}（${WD[wd]}）也開獎，平常只有${DRAW_DAYS[id].map(x=>'週'+WD[x]).join('、')}；春節等加碼時會天天開，另外有加碼獎`)}}
+  if(od&&['lotto','power'].includes(id)&&od>='2033-12-20'&&od<='2033-12-31'){on=true;why.push('<b>屆末</b>：這一屆發行到 2033 年底，最後一期頭獎沒人中會往下分；2023 年底威力彩最後一期，全體玩家稅後拿回是銷售額的 186%（以台彩當時公告的規則為準）')}
   if(!g.digits&&r&&Array.isArray(r.evd)){
     const pd=popData(id), e=evCalc(id,r.evd,pd&&pd.w,offJackpot(id));
     if(e){
@@ -1125,11 +1129,47 @@ function gameSignal(id){
       const up=e.baseRet>0?e.ret/e.baseRet-1:0;
       if(id!=='d539'&&up>=0.3){on=true;why.push(`<b>頭獎累積</b>${jpS?`（連 ${jpS} 期沒人中）`:''}：這期 ${money(e.pool)}，平均拿回 ${Math.round(e.ret*100)}%，比平常多 ${Math.round(up*100)}%`)}
       else if(id!=='d539'&&jpS>=3)why.push(`頭獎連 ${jpS} 期沒人中，但平均拿回只比平常多 ${Math.round(up*100)}%（還不到綠燈的 30%）`);
+      const rp=id!=='d539'&&e.pool>0?reachProb(id,e.pool/1e8):null;
+      if(rp&&rp.k===0){on=true;why.push(`<b>超過歷史回本門檻</b>（約 ${rp.be} 億）：歷年回測裡，這種期的平均拿回超過票價`)}
+      else if(rp&&jpS>=1)why.push(`離回本門檻（約 ${rp.be} 億）還要連槓約 ${rp.k} 期，機率約 ${rp.prob<0.001?'不到 0.1%':(rp.prob*100).toFixed(rp.prob<0.1?1:0)+'%'}`);
       if(e.sec&&e.sec.streak>=2&&e.sec.pool>=2*e.sec.typical){on=true;why.push(`<b>貳獎連 ${e.sec.streak} 期沒人中</b>：這期貳獎總額約 ${money(e.sec.pool)}，平常約 ${money(e.sec.typical)}`)}
       else if(e.sec&&e.sec.streak>=1)why.push(`貳獎連 ${e.sec.streak} 期沒人中，累積 ${money(e.sec.carry)}`);
     }
   }
   return{on,why};
+}
+// ---- 歷史回測（scripts/evbt.mjs 每週日隨 fetch-stats 重算、重新學參數，存在 stats.json 的 evbt）----
+function evbtOf(id){const b=stats&&stats.games&&stats.games[id]&&stats.games[id].evbt;return b&&Array.isArray(b.ge)&&b.sales&&Array.isArray(b.sales.pts)?b:null}
+// 頭獎池（億）→ 預估銷售（億）：在 ln(銷售) 上分段線性內插，超出範圍用最後一段斜率外推（和 scripts/evbt.mjs 的 salesAt 相同）
+function salesAt(pts,Py){
+  if(!pts||pts.length<2)return null; let i=0; while(i<pts.length-2&&Py>pts[i+1][0])i++;
+  const [x0,y0]=pts[i],[x1,y1]=pts[i+1],t=(Py-x0)/(x1-x0);
+  return Math.exp(Math.log(y0)+(Math.log(y1)-Math.log(y0))*Math.max(t,0));
+}
+// 從目前頭獎池連槓到「回本門檻」的機率：每一期沒人中的機率是 e^(−λ)，銷售照歷史關係跟著獎池長大
+function reachProb(id,poolYi){
+  const b=evbtOf(id); if(!b||!(b.be>0)||!(poolYi>0))return null; if(poolYi>=b.be)return{prob:1,k:0,be:b.be};
+  const t=TIERS[id], pJP=t.list[0][2]/t.total, pts=b.sales.pts; let P=poolYi,prob=1,k=0;
+  while(P<b.be&&k<200){const S=salesAt(pts,P); prob*=Math.exp(-S*1e8/PRICE[id]*pJP); P+=b.sales.add*salesAt(pts,P+b.sales.add*S); k++}
+  return{prob,k,be:b.be};
+}
+function renderBacktest(){
+  const box=$('rsBT'); if(!box)return; const pc=x=>(x*100).toFixed(1).replace(/\.0$/,'')+'%';
+  const parts=['lotto','power'].map(id=>{const b=evbtOf(id); if(!b)return''; const g=GAMES[id], price=PRICE[id], all=b.ge.find(x=>x.t===0), pos=b.pos||[], last=pos[pos.length-1];
+    const rows=b.ge.filter(x=>x.n>0).map(x=>`<tr><td>${x.t?'平均拿回 ≥ '+x.t+'% 才買':'每期都買'}</td><td>${x.n.toLocaleString('en-US')}</td><td>${x.perYear>=10?Math.round(x.perYear):x.perYear.toFixed(1)}</td><td>${pc(x.avg)}</td><td>${x.avg>=1?'賺 '+((x.avg-1)*price).toFixed(1):'賠 '+((1-x.avg)*price).toFixed(1)} 元</td></tr>`).join('');
+    const r=latest[id], e=r&&Array.isArray(r.evd)?evCalc(id,r.evd,null,offJackpot(id)):null, rp=e&&e.pool>0?reachProb(id,e.pool/1e8):null;
+    const live=rp?(rp.k===0?`<b>目前頭獎 ${money(e.pool)}，已經超過這個門檻。</b>`:`目前頭獎 ${money(e.pool)}，還要連槓約 <b>${rp.k}</b> 期才到；照歷史銷售推估，中途都沒人中的機率約 <b>${rp.prob<0.001?'不到 0.1%':pc(rp.prob)}</b>。`):'';
+    const term=(b.term||[]).filter(x=>x.ratio>=1.2).map(x=>`${x.dt}：全部獎池 ${x.pool} 億，是當期銷售 ${x.sell} 億的 ${x.ratio.toFixed(2)} 倍；全體玩家實際稅後拿回 ${pc(x.paid)}`).join('；');
+    return `<p class="freq-sum"><b>${g.name}</b>：回測 ${b.draws.toLocaleString('en-US')} 期（${b.from.slice(0,4)}～${b.to.slice(0,4)}），每期都買平均拿回 ${pc(all.avg)}。平均拿回超過票價的有 <b>${pos.length}</b> 期${pos.length?`（約每 ${(b.draws/pos.length/(all.perYear||1)).toFixed(1)} 年一期），最近一次 ${last.dt}（頭獎池 ${last.pool} 億、拿回 ${pc(last.ret)}${last.w?`，${last.w} 注中頭獎`:'，沒人中'}）`:''}。</p>
+    <div class="cmp-wrap"><table class="cmp lab"><thead><tr><th>買法</th><th>符合的期數</th><th>每年約幾期</th><th>這些期平均拿回</th><th>每注平均</th></tr></thead><tbody>${rows}</tbody></table></div>
+    <p class="rule">${b.be?`<b>回本門檻（算進人潮）約 ${b.be} 億</b>：頭獎越高買的人越多、越容易平分，所以比只看目前銷售額算出來的高。`:'照歷史銷售關係，頭獎再高也很難回本（人潮增加得比獎池快）。'}${live}</p>
+    <p class="rule">公式準不準：把全部期數依事前算的拿回率分成五組，事前預測 ${b.calib.map(c=>pc(c[0])).join('、')}，事後全體玩家實際（稅後）拿回 ${b.calib.map(c=>pc(c[1])).join('、')}。</p>
+    ${b.fwd?`<p class="rule"><b>前瞻測試（不偷看答案）</b>：每年年初只用那之前的期數重新學參數，每一期只用開獎前就知道的資訊（上期累積、上期銷售額）預測，${b.fwd.from.slice(0,4)} 年起考了 ${b.fwd.n.toLocaleString('en-US')} 期，預測和開獎後實算平均只差 ${(b.fwd.mae*100).toFixed(1)} 個百分點。事後真的超過票價的 ${b.fwd.caught[1]} 期，開獎前有 ${b.fwd.caught[0]} 期就預測到 90% 以上。${(()=>{const t=b.fwd.th.find(x=>x.t===100);return t&&t.n?`開獎前就預測「超過票價」的有 ${t.n} 期，事後實算平均拿回 ${pc(t.act)}。`:''})()}這個測試每週日自動重跑，新開的每一期都會變成新考題。</p>`:''}
+    <p class="rule">凱利公式：連最划算的那一期（${b.best.dt}，拿回 ${pc(b.best.ret)}），也要有約 <b>${b.kelly.need} 億</b>資產，買 1 注才不算下太重。原因是中頭獎的機率太小，期望值是正的也幾乎都會賠掉這一注。所以「超過票價」只代表娛樂成本降到零以下，不是投資。</p>
+    ${term?`<p class="rule"><b>屆末最後一期</b>（發行機構十年一屆，最後一期頭獎沒人中會往下分給有人中的獎項，等於整個獎池強制派完）：${term}。這一屆發行到 2033 年底。</p>`:''}`}).filter(Boolean);
+  if(!parts.length){box.innerHTML='<p class="rule">歷年資料載入後計算。</p>';return}
+  box.innerHTML=parts.join('')+`<p class="rule"><b>加碼獎</b>不在上表（台彩每期資料沒有這一欄）：以 2026 年春節大樂透規則算，大紅包（9 個號碼對中 6 個，100 萬）機率 84/13,983,816、小紅包（對中 5 個＋小紅包號，10 萬）機率 126/13,983,816，合計每注平均多拿回約 5.5 元（稅後，票價的 11%）；紅包送完後改均分會變少。</p>
+  <p class="note">回測用的是事後才知道的當期銷售額；開獎前只能估計。平均拿回是「買很多很多次的平均」，單買幾注幾乎都拿不到頭獎那一部分。稅一律用現行規則（每注超過 5,000 元扣 20.4%）。</p>`;
 }
 const SIG_GAMES=['lotto','power','d539','s4'];
 function renderSignal(){
@@ -2484,7 +2524,7 @@ function renderEV(){
     lines.push(e.poolSrc==='官方'?`${e.lastWinners>0?'上期頭獎有人中，':'上期頭獎沒人中，'}這期頭獎<b>台彩預估 ${money(e.pool)}</b>${e.lastWinners>0&&cur==='lotto'?'（大樂透頭獎保證 1 億起）':''}。`
       :e.lastWinners>0?`上期頭獎有人中，這期頭獎重新累積，估計約 <b>${money(e.pool)}</b>（本期銷售撥入）。`
       :`上期頭獎沒人中，這期頭獎估計約 <b>${money(e.pool)}</b>（累積 ${money(e.carry)}＋本期銷售撥入約 ${money(e.fresh)}）。`);
-    lines.push(`頭獎剛被開走時（平常）約拿回 ${e.base.toFixed(1)} 元（${pc(e.baseRet)}）。頭獎要累積到約 <b>${money(e.breakeven)}</b>，平均拿回的錢才會回到 ${e.price} 元。`);
+    lines.push(`頭獎剛被開走時（平常）約拿回 ${e.base.toFixed(1)} 元（${pc(e.baseRet)}）。頭獎要累積到約 <b>${money(e.breakeven)}</b>，平均拿回的錢才會回到 ${e.price} 元${evbtOf(cur)&&evbtOf(cur).be?`（這是照目前銷售額算；頭獎越高買的人越多，依歷年回測實際約要 ${evbtOf(cur).be} 億）`:''}。`);
   }
   if(e.sec&&e.sec.carry>0)lines.splice(1,0,`<b>貳獎已連 ${e.sec.streak} 期沒人中，累積 ${money(e.sec.carry)}</b>，這期貳獎總額估計約 <b>${money(e.sec.pool)}</b>（平常約 ${money(e.sec.typical)}），中 ${cur==='lotto'?'5 個＋特別號':'第一區 6 個'}就有機會${e.sec.pool>=1e6?'拿到百萬以上':''}；機率 ${oneIn(e.table[1].p)}，比頭獎容易 ${Math.round(e.table[1].p/e.table[0].p)} 倍。（建議：可將選號目標切換為「衝刺二三獎」，使用公用膽碼包牌集中火力）`);
   if(pd){const diff=(e.jpLeast/e.jpMost-1)*100;
@@ -2610,7 +2650,8 @@ function renderResearch(){
   const g=GAMES[cur], R=academicTests(cur); if(!$('rsRows'))return;
   { // 攻防面板：回本門檻、少人選組合實際多拿多少，都用本站期望值即時算
     const ev=id=>{const r=latest[id],pd=popData(id);return r&&Array.isArray(r.evd)?evCalc(id,r.evd,pd&&pd.w,offJackpot(id)):null};
-    const be=['lotto','power'].map(id=>{const e=ev(id);return e&&e.breakeven>0?`${GAMES[id].name}約 ${money(e.breakeven)}`:null}).filter(Boolean);
+    const be=['lotto','power'].map(id=>{const e=ev(id),b=evbtOf(id);return b&&b.be?`${GAMES[id].name}約 ${b.be} 億（歷史回測，算進人潮；只看目前銷售額是 ${e&&e.breakeven>0?money(e.breakeven):'—'}）`:e&&e.breakeven>0?`${GAMES[id].name}約 ${money(e.breakeven)}`:null}).filter(Boolean);
+    renderBacktest();
     if($('rsBE'))$('rsBE').textContent=be.length?be.join('、'):'（開獎資料載入後計算）';
     const aid=['lotto','power','d539'].includes(cur)?cur:'lotto', e=ev(aid);
     if($('rsAnti'))$('rsAnti').textContent=e?`以${GAMES[aid].name}這期來說，最少人選的組合每注平均拿回 ${e.evLeast.toFixed(1)} 元、一般組合 ${e.ev.toFixed(1)} 元（多 ${Math.round((e.evLeast/e.ev-1)*100)}%）；萬一中頭獎，平均實拿約 ${money(e.jpLeast)}，一般組合約 ${money(e.jpAvg)}。`:'（開獎資料載入後計算）';
@@ -3361,7 +3402,7 @@ function setStyle(v){
 }
 document.querySelectorAll('.style-sw button').forEach(b=>b.onclick=()=>setStyle(b.dataset.style));
 setStyle(store('lucky.style')||'b'); // 預設風格：B 彩券行
-const APP_VER='5.1'; // 每次發布跟 android/build.sh 的 VERSION_NAME 一起改
+const APP_VER='5.2'; // 每次發布跟 android/build.sh 的 VERSION_NAME 一起改
 $('appVer').textContent='版本 '+APP_VER;
 $('gearBtn').onclick=e=>{e.stopPropagation();const p=$('settingsPanel'),o=p.hidden;p.hidden=!o;$('gearBtn').setAttribute('aria-expanded',String(o))};
 document.addEventListener('click',e=>{const p=$('settingsPanel');if(!p.hidden&&!e.target.closest('#settingsPanel,#gearBtn')){p.hidden=true;$('gearBtn').setAttribute('aria-expanded','false')}});
