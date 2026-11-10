@@ -770,13 +770,13 @@ body.can-save .save{display:inline-block}
     <p class="freq-sum" id="rsPop"></p>
     <h3 class="lab-h">四大數學與 AI 攻防體系</h3>
     <div class="rs-list">
-      <div class="rs-item"><b>第一層：資本與破產防禦（Kelly Criterion）</b><br><span class="rule">常態負和期守成（f* = 0），連槓加碼正 EV 窗口（大樂透 &gt; 5.2 億、威力彩 &gt; 10.8 億、貳獎連槓破千萬）出擊。</span></div>
+      <div class="rs-item"><b>第一層：資金控管（凱利公式）</b><br><span class="rule">平常每注平均拿回都少於票價，凱利公式的最佳下注比例是 0（不買）。頭獎要累積到 <span id="rsBE">（計算中）</span>，平均拿回才會回本（本站「這期值不值得買」扣稅、算進平分後的實算，隨銷售額變動）；在那之前出手都是娛樂支出。</span></div>
       <div class="rs-item"><b>第二層：組合設計覆蓋矩陣（Covering Designs）</b><br><span class="rule">Steiner 系統與正交輪配消除 85% 組合冗餘；衝刺二三獎採用公用膽碼與 5 膽 44 拖 / 4 膽 35 拖全拖矩陣。</span></div>
-      <div class="rs-item"><b>第三層：高熵典型集濾網（Typical Set Filtering）</b><br><span class="rule">鎖定 AC ≥ 6、和值 105～195；順應自然結構納入連號（實證 50%）與同尾數（實證 80%），避開低熵規則陣列。</span></div>
-      <div class="rs-item"><b>第四層：賽局反群眾最大熵優化（Stern-Cover MaxEnt）</b><br><span class="rule">主力鎖定 32～49 大號碼與跨期重號，避開生日密集區，命中時條件實領獎金暴增 +56%～+62%。</span></div>
+      <div class="rs-item"><b>第三層：號碼長相（典型集）只是描述</b><br><span class="rule">算術複雜度（AC）、和值、連號、同尾數只是描述「隨機開出的號碼通常長什麼樣子」。每一組號碼開出的機率完全一樣，篩選這些不會比較容易中；本站也查過，扣掉號碼本身的熱門度後，這些圖形對「中了要跟幾個人分」也沒有一致的影響。</span></div>
+      <div class="rs-item"><b>第四層：賽局反群眾最大熵優化（Stern-Cover MaxEnt）</b><br><span class="rule">用全部期數的中獎人數估出每個號碼被選的程度：大號碼與剛開過的號碼比較少人選。中獎機率不變，差別只在中了跟幾個人分：<span id="rsAnti">（計算中）</span></span></div>
     </div>
-    <h3 class="lab-h">數學品質評分 MQI（Mathematical Quality Index）</h3>
-    <p class="rule">結合「典型集統計適應度（40 分）」、「逆向抗平分防禦（35 分）」與「正交覆蓋效率（25 分）」，將每一組號碼轉化為 0～100 的客觀品質指標。低於 85 分提供一鍵智能升級，在保留玩家指定核心號碼下自動拉升至 92+ 分頂級配置。</p>
+    <h3 class="lab-h">抗平分分數（MQI）</h3>
+    <p class="rule">0～100 分：這組號碼比多少 % 的隨機組合少人選（依最大熵熱門度，上期號碼另外算進重號係數）。分數高代表萬一中獎比較少人跟你分；<b>中獎機率不管幾分都一樣</b>。「換成比較少人選的組合」會保留你指定的號碼、只換其他號碼。</p>
     <h3 class="lab-h">相關研究</h3>
     <div class="rs-list" id="rsList"></div>
     <p class="note">研究清單會持續補充；同時做很多個檢定時，偶爾有一個 p 值小於 0.05 是正常的（約每 20 個會有 1 個）。</p>
@@ -1729,72 +1729,27 @@ function parseMust(g){
 // ---- 避開熱門選法：很多人會選的組合（只影響萬一中獎時要不要跟人平分，不影響機率） ----
 let avoid=!!store('lucky.avoid');
 function acVal(s){const d=new Set();for(let i=0;i<s.length;i++)for(let j=i+1;j<s.length;j++)d.add(Math.abs(s[j]-s[i]));return d.size-(s.length-1)}
+// 抗平分分數（沿用 MQI 名稱）：這組號碼的熱門倍數在隨機組合裡排第幾（分數高＝比較少人選）。不影響中獎機率
+const mqiRef={};
+function mqiLogMult(id,z1,prevNums,pd){
+  let lm=z1.reduce((a,v)=>a+Math.log(1+pd.w[v-1]/100),0);
+  const copy=prevNums?z1.filter(v=>prevNums.includes(v)).length:0, rp=pd.rep&&pd.rep.length?pd.rep[0]:0;
+  if(copy&&copy<3&&rp)lm+=copy*Math.log(1+rp/100); // 1–2 個上期號碼：大家會避開（實證）；3 個以上像照抄，不算折扣
+  return lm;
+}
 function calcMQI(id,sets,latestDraw){
-  const g=GAMES[id]; if(!g||g.digits||!sets||!sets.length)return null;
-  const k=g.z1.n, N=g.z1.max;
-  const expSum=k*(N+1)/2;
-  const sumSd=Math.sqrt(k*(N*N-1)/12*(1-(k-1)/(N-1)));
-  const minAc=k>=6?6:4;
-  const r=latestDraw||cleanDraw(latest[id]);
-  const prevSet=new Set(r?[...r.numbers,...(r.special&&id==='lotto'?[r.special]:[])]:[]);
-
-  let sumTot=0, acTot=0, highTot=0, oddBalTot=0, spanTot=0, structTot=0, apPenTot=0, tailPenTot=0, lagTot=0;
-  for(const x of sets){
-    const s=[...x.z1].sort((a,b)=>a-b);
-    sumTot+=s.reduce((a,b)=>a+b,0);
-    acTot+=acVal(s);
-    highTot+=s.filter(v=>v>31).length;
-    const odd=s.filter(v=>v%2===1).length;
-    if(k>=6?(odd>=2&&odd<=4):(odd>=2&&odd<=3))oddBalTot++;
-    if(s[s.length-1]-s[0]>=(k>=6?25:20))spanTot++;
-    let consec=0;
-    for(let i=1;i<s.length;i++)if(s[i]===s[i-1]+1)consec++;
-    const distinctTails=new Set(s.map(v=>v%10)).size;
-    if(consec<=2&&distinctTails>=(k>=6?4:3))structTot++;
-    const d=s[1]-s[0];
-    if(!s.every((v,i)=>i===0||v-s[i-1]===d))apPenTot++;
-    const tailCounts={};
-    s.forEach(v=>{tailCounts[v%10]=(tailCounts[v%10]||0)+1});
-    if(Math.max(...Object.values(tailCounts))<=(k>=6?3:2))tailPenTot++;
-    if(s.filter(v=>prevSet.has(v)).length<=2)lagTot++;
+  const g=GAMES[id], pd=popData(id); if(!g||g.digits||!sets||!sets.length||!pd)return null;
+  const r=latestDraw||cleanDraw(latest[id]), prev=r?r.numbers:null, key=id+':'+(prev?prev.join(','):'')+':'+pd.w.join(',');
+  if(!mqiRef[id]||mqiRef[id].key!==key){ // 用 4,000 組隨機號碼當參考分布（每彩種、每期算一次）
+    const rng=seeded(20261110), ref=[];
+    for(let t=0;t<4000;t++){const st=new Set();while(st.size<g.z1.n)st.add(1+Math.floor(rng()*g.z1.max));ref.push(mqiLogMult(id,[...st],prev,pd))}
+    mqiRef[id]={key,ref:ref.sort((x,y)=>x-y)};
   }
-  const m=sets.length, avgSum=sumTot/m, avgAc=acTot/m, avgHigh=highTot/m;
-  let sTyp=0;
-  const zScore=Math.abs(avgSum-expSum)/sumSd;
-  if(zScore<=1.5)sTyp+=10; else if(zScore<=2.2)sTyp+=6; else sTyp+=2;
-  if(avgAc>=minAc)sTyp+=10; else if(avgAc>=minAc-1)sTyp+=6; else sTyp+=1;
-  sTyp+=Math.round(5*(oddBalTot/m))+Math.round(5*(spanTot/m))+Math.round(10*(structTot/m));
-
-  let sAnti=0;
-  const targetHigh=id==='lotto'?2:1;
-  if(avgHigh>=targetHigh)sAnti+=15; else if(avgHigh>=1)sAnti+=8; else sAnti+=2;
-  sAnti+=Math.round(10*(apPenTot/m))+Math.round(5*(tailPenTot/m))+Math.round(5*(lagTot/m));
-
-  let sOrth=0;
-  if(m===1){
-    sOrth=25;
-  } else {
-    const allBalls=new Set();
-    sets.forEach(x=>x.z1.forEach(v=>allBalls.add(v)));
-    const covRatio=allBalls.size/Math.min(m*k,N);
-    let maxOverlap=0;
-    for(let i=0;i<m;i++){
-      const s1=new Set(sets[i].z1);
-      for(let j=i+1;j<m;j++){
-        const ov=sets[j].z1.filter(v=>s1.has(v)).length;
-        if(ov>maxOverlap)maxOverlap=ov;
-      }
-    }
-    if(covRatio>=0.85&&maxOverlap<=3)sOrth=25;
-    else if(covRatio>=0.70&&maxOverlap<=4)sOrth=18;
-    else if(covRatio>=0.50)sOrth=12;
-    else sOrth=5;
-  }
-  const score=Math.min(100,Math.max(0,sTyp+sAnti+sOrth));
-  let tier='high', label='頂級高熵抗平分配置';
-  if(score<70){tier='low';label='低熵警告 · 極易撞號平分';}
-  else if(score<85){tier='mid';label='中等品質 · 具優化空間';}
-  return {score,sTyp,sAnti,sOrth,tier,label,details:{avgSum:Math.round(avgSum),avgAc:avgAc.toFixed(1),avgHigh:avgHigh.toFixed(1)}};
+  const lm=sets.reduce((a,x)=>a+mqiLogMult(id,x.z1,prev,pd),0)/sets.length, ref=mqiRef[id].ref;
+  let lo=0,hi=ref.length; while(lo<hi){const mid=(lo+hi)>>1;if(ref[mid]<=lm)lo=mid+1;else hi=mid}
+  const score=Math.round(100*(1-lo/ref.length)), mult=Math.exp(lm);
+  const tier=score>=80?'high':score>=40?'mid':'low', label=score>=80?'少人選':score>=40?'普通':'熱門組合';
+  return{score,tier,label,mult,diff:Math.round((mult-1)*100)};
 }
 function optimizeSet(id,r,latestDraw){
   const g=GAMES[id]; if(!g||g.digits)return r;
@@ -1814,7 +1769,7 @@ function optimizeSet(id,r,latestDraw){
     picked.sort((a,b)=>a-b);
     const q=calcMQI(id,[{z1:picked}],latestDraw);
     if(q&&q.score>bestScore){bestScore=q.score;best=picked;}
-    if(bestScore>=95)break;
+    if(bestScore>=97)break;
   }
   return {
     anchors,
@@ -1840,10 +1795,10 @@ function mathStructSummary(id,sets,skipBadge){
   }
   const m=sets.length, avgSum=Math.round(sumTot/m), avgAc=(acTot/m).toFixed(1), avgHigh=(highN/m).toFixed(1);
   const q=!skipBadge&&calcMQI(id,sets,r);
-  const qBadge=q?`<span class="mqi-badge ${q.tier}">🛡️ MQI ${q.score} 分 · ${q.label}</span> `:'';
-  return `${qBadge}📐 <b>數學典型集體檢</b>（對照歷年開獎實證）：平均和值 <b>${avgSum}</b>（理論 ${expSum.toFixed(0)}）· 算術複雜度 <b>AC=${avgAc}</b>（≥${minAc} 為高熵典型集 ${acTot/m>=minAc?'✓':'⚠️'}）· 大號(>31)平均 <b>${avgHigh}</b> 顆 · `+
-    (m===1?`${consecN?'含連號':'無連號'}（實證 ${ep.c}% 期數有）· ${tailN?'含同尾數 ✓':'無同尾數'}（實證 ${ep.t}% 期數有）· ${voidN?'有十位斷區 ✓':'無斷區'}（實證 ${ep.v}% 期數有）`+(prevSet.size?` · ${repN?'含上期號碼 ✓（少人選溢價）':'無上期號碼'}（實證 ${ep.r}% 期數有）`:'')
-    :`含連號 <b>${consecN}/${m}</b> 組（實證 ${ep.c}%） · 含同尾數 <b>${tailN}/${m}</b> 組（實證 ${ep.t}%） · 十位斷區 <b>${voidN}/${m}</b> 組（實證 ${ep.v}%）`+(prevSet.size?` · 含上期重號 <b>${repN}/${m}</b> 組（實證 ${ep.r}%）`:''));
+  const qBadge=q?`<span class="mqi-badge ${q.tier}">🛡️ 抗平分 ${q.score} 分 · ${q.label}</span> `:'';
+  return `${qBadge}📐 <b>號碼長相</b>（只是描述，不影響中獎機率）：平均和值 <b>${avgSum}</b>（理論 ${expSum.toFixed(0)}）· 算術複雜度 <b>AC=${avgAc}</b>（隨機開出的號碼多數 ≥${minAc}）· 大號(>31)平均 <b>${avgHigh}</b> 顆 · `+
+    (m===1?`${consecN?'含連號':'無連號'}（歷年 ${ep.c}% 期數有）· ${tailN?'含同尾數':'無同尾數'}（歷年 ${ep.t}% 期數有）· ${voidN?'有十位斷區':'無斷區'}（歷年 ${ep.v}% 期數有）`+(prevSet.size?` · ${repN?'含上期號碼（比較少人選）':'無上期號碼'}（歷年 ${ep.r}% 期數有）`:'')
+    :`含連號 <b>${consecN}/${m}</b> 組（歷年 ${ep.c}%） · 含同尾數 <b>${tailN}/${m}</b> 組（歷年 ${ep.t}%） · 十位斷區 <b>${voidN}/${m}</b> 組（歷年 ${ep.v}%）`+(prevSet.size?` · 含上期重號 <b>${repN}/${m}</b> 組（歷年 ${ep.r}%）`:''));
 }
 function isPopular(id,z1){
   const s=[...z1].sort((a,b)=>a-b);
@@ -1852,9 +1807,8 @@ function isPopular(id,z1){
   if(high<(id==='lotto'?2:1))return true;
   // 2. 三個以上連號
   for(let i=2;i<s.length;i++)if(s[i]===s[i-1]+1&&s[i-1]===s[i-2]+1)return true;
-  // 3. 等差排列或低熵規則圖形（AC 算術複雜度過低，例如兩組等差 05 10 15 22 27 32，在 2,185 期中佔比不到 1.5% 且極易撞號）
+  // 3. 整組等差排列（例如 05 10 15 20 25 30）
   const d=s[1]-s[0]; if(s.every((v,i)=>i===0||v-s[i-1]===d))return true;
-  if(acVal(s)<(s.length>=6?5:3))return true;
   // 4. 尾數全部一樣，或 4 個以上同尾數
   const tails={}; s.forEach(v=>tails[v%10]=(tails[v%10]||0)+1); if(Math.max(...Object.values(tails))>=4)return true;
   // 5. 照抄上一期：和最新一期重複 4 個以上
@@ -2351,7 +2305,6 @@ function popScore(id,z1){ // 分數越高 = 越像很多人會選的組合（估
   sc+=lowPairs*0.8+Math.max(0,pairs-1)*1.2;
   const tails={}; s.forEach(v=>tails[v%10]=(tails[v%10]||0)+1); const sameTail=Object.values(tails).reduce((a,c)=>a+Math.max(0,c-1),0);
   sc+=Math.max(0,sameTail-1)*0.7;
-  const ac=acVal(s), minAc=s.length>=6?6:4; if(ac<minAc)sc+=(minAc-ac)*1.5;
   const r=cleanDraw(latest[id]); const copy=r?s.filter(v=>r.numbers.includes(v)).length:0;
   // 實證（台彩全部期數）：開出 1–2 個上期號碼的期數，中獎人數少約 4–6%，大家會避開剛開過的號碼，所以這是「少人選」；3 個以上才像照抄
   const repPct=pd&&pd.rep&&copy>0&&copy<3?(pd.rep[Math.min(copy,pd.rep.length)-1]||0):0;
@@ -2655,6 +2608,13 @@ function academicTests(id){
 }
 function renderResearch(){
   const g=GAMES[cur], R=academicTests(cur); if(!$('rsRows'))return;
+  { // 攻防面板：回本門檻、少人選組合實際多拿多少，都用本站期望值即時算
+    const ev=id=>{const r=latest[id],pd=popData(id);return r&&Array.isArray(r.evd)?evCalc(id,r.evd,pd&&pd.w,offJackpot(id)):null};
+    const be=['lotto','power'].map(id=>{const e=ev(id);return e&&e.breakeven>0?`${GAMES[id].name}約 ${money(e.breakeven)}`:null}).filter(Boolean);
+    if($('rsBE'))$('rsBE').textContent=be.length?be.join('、'):'（開獎資料載入後計算）';
+    const aid=['lotto','power','d539'].includes(cur)?cur:'lotto', e=ev(aid);
+    if($('rsAnti'))$('rsAnti').textContent=e?`以${GAMES[aid].name}這期來說，最少人選的組合每注平均拿回 ${e.evLeast.toFixed(1)} 元、一般組合 ${e.ev.toFixed(1)} 元（多 ${Math.round((e.evLeast/e.ev-1)*100)}%）；萬一中頭獎，平均實拿約 ${money(e.jpLeast)}，一般組合約 ${money(e.jpAvg)}。`:'（開獎資料載入後計算）';
+  }
   $('rsMeta').textContent=g.name+(R?` · ${R.N.toLocaleString('en-US')} 期`:'');
   if(!R){$('rsRows').innerHTML='<tr><td colspan="4">歷年開獎資料載入中…</td></tr>';$('rsVerdict').textContent='';}
   else{
@@ -2825,9 +2785,9 @@ function runCheck(){
   if(!g.digits){
     const q=calcMQI(id,[r]);
     if(q){
-      parts.push(`<div class="mqi-box"><div class="mqi-row"><span>🛡️ <b>數學品質評分 MQI</b>：<span class="mqi-badge ${q.tier}">${q.score} / 100 · ${q.label}</span></span>`+
-        (q.score<85?`<button type="button" class="btn-opt" id="ckOptDo">✨ 一鍵數學最佳化</button>`:'')+
-        `</div><div class="mqi-breakdown"><span>典型集適應度 <b>${q.sTyp}/40</b></span><span>逆向抗平分防禦 <b>${q.sAnti}/35</b></span><span>正交覆蓋效率 <b>${q.sOrth}/25</b></span></div><div class="rule" style="margin-top:6px">${mathStructSummary(id,[r],true)}</div></div>`);
+      parts.push(`<div class="mqi-box"><div class="mqi-row"><span>🛡️ <b>抗平分分數</b>：<span class="mqi-badge ${q.tier}">${q.score} / 100 · ${q.label}</span></span>`+
+        (q.score<80?`<button type="button" class="btn-opt" id="ckOptDo">換成比較少人選的組合</button>`:'')+
+        `</div><div class="rule">比 ${q.score}% 的隨機組合少人選；選這組的人約是平均的 ${q.mult.toFixed(2)} 倍。只影響萬一中獎時跟幾個人分，<b>中獎機率跟任何一組都一樣</b>。</div><div class="rule" style="margin-top:6px">${mathStructSummary(id,[r],true)}</div></div>`);
     } else parts.push(`<p class="rule">${mathStructSummary(id,[r])}</p>`);
     const pd=popData(id);
     if(pd){
@@ -2846,8 +2806,8 @@ function runCheck(){
       const opt=optimizeSet(id,r,cleanDraw(latest[id]));
       $('ckNums').value=opt.z1.map(v=>fmt(v,2)).join(' ');
       if(g.z2&&opt.z2&&opt.z2.length)$('ckZ2').value=fmt(opt.z2[0],2);
-      $('ckMsg').textContent=`✨ 已保留核心號碼 [${opt.anchors.map(v=>fmt(v,2)).join(', ')}]，成功升級至 ${opt.score} 分頂級高熵配置！`;
       runCheck();
+      $('ckMsg').textContent=`已保留你的號碼 [${opt.anchors.map(v=>fmt(v,2)).join(', ')}]，換成抗平分 ${opt.score} 分的組合（比較少人選；中獎機率不變）`;
     };
   }
   $('ckSave').hidden=!picksCol;
@@ -3401,7 +3361,7 @@ function setStyle(v){
 }
 document.querySelectorAll('.style-sw button').forEach(b=>b.onclick=()=>setStyle(b.dataset.style));
 setStyle(store('lucky.style')||'b'); // 預設風格：B 彩券行
-const APP_VER='4.7'; // 每次發布跟 android/build.sh 的 VERSION_NAME 一起改
+const APP_VER='5.1'; // 每次發布跟 android/build.sh 的 VERSION_NAME 一起改
 $('appVer').textContent='版本 '+APP_VER;
 $('gearBtn').onclick=e=>{e.stopPropagation();const p=$('settingsPanel'),o=p.hidden;p.hidden=!o;$('gearBtn').setAttribute('aria-expanded',String(o))};
 document.addEventListener('click',e=>{const p=$('settingsPanel');if(!p.hidden&&!e.target.closest('#settingsPanel,#gearBtn')){p.hidden=true;$('gearBtn').setAttribute('aria-expanded','false')}});
