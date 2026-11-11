@@ -93,6 +93,7 @@ button:focus-visible,input:focus-visible,select:focus-visible{outline:3px solid 
 .slip{background:var(--paper);border:1.5px solid var(--line);border-radius:14px;padding:18px;display:flex;flex-direction:column;gap:14px}
 .rule{font-size:13px;color:var(--muted);display:flex;flex-wrap:wrap;gap:6px 16px}
 .rule b{color:var(--ink);font-family:var(--f-num)}
+#rsBT .rule{display:block;margin:10px 0 0;line-height:1.7}#rsBT .freq-sum{margin:14px 0 6px;line-height:1.7}#rsBT .freq-sum:first-child{margin-top:0}#rsBT .cmp th,#rsBT .cmp td{padding:7px 4px}
 .sets{display:flex;flex-direction:column;gap:10px;min-height:52px}
 .set{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding-block:6px;border-bottom:1px dashed var(--line)}
 .set:last-child{border-bottom:0}
@@ -174,6 +175,7 @@ body.mode-scratch .col-main{position:static;max-height:none;overflow:visible}
 .sc-bars .bar.jp i{background:var(--accent)}
 .rs-item{padding:8px 10px;background:var(--bg);border-radius:8px;line-height:1.6}
 .rs-item a{color:var(--pick)}
+.rs-item .rule{display:block}
 .win-rate .rule{display:block;margin-top:4px;font-size:12px}
 .today-row{padding:10px 12px;background:var(--bg);border-radius:10px}
 .today-row .rule{display:block;margin:4px 0 0;font-size:12px}
@@ -1156,12 +1158,12 @@ function reachProb(id,poolYi){
 function renderBacktest(){
   const box=$('rsBT'); if(!box)return; const pc=x=>(x*100).toFixed(1).replace(/\.0$/,'')+'%';
   const parts=['lotto','power'].map(id=>{const b=evbtOf(id); if(!b)return''; const g=GAMES[id], price=PRICE[id], all=b.ge.find(x=>x.t===0), pos=b.pos||[], last=pos[pos.length-1];
-    const rows=b.ge.filter(x=>x.n>0).map(x=>`<tr><td>${x.t?'平均拿回 ≥ '+x.t+'% 才買':'每期都買'}</td><td>${x.n.toLocaleString('en-US')}</td><td>${x.perYear>=10?Math.round(x.perYear):x.perYear.toFixed(1)}</td><td>${pc(x.avg)}</td><td>${x.avg>=1?'賺 '+((x.avg-1)*price).toFixed(1):'賠 '+((1-x.avg)*price).toFixed(1)} 元</td></tr>`).join('');
+    const rows=b.ge.filter(x=>x.n>0).map(x=>`<tr><td>${x.t?'≥ '+x.t+'% 才買':'每期都買'}</td><td>${x.n.toLocaleString('en-US')}</td><td>${x.perYear>=10?Math.round(x.perYear):x.perYear.toFixed(1)}</td><td>${pc(x.avg)}</td><td>${x.avg>=1?'賺 '+((x.avg-1)*price).toFixed(1):'賠 '+((1-x.avg)*price).toFixed(1)} 元</td></tr>`).join('');
     const r=latest[id], e=r&&Array.isArray(r.evd)?evCalc(id,r.evd,null,offJackpot(id)):null, rp=e&&e.pool>0?reachProb(id,e.pool/1e8):null;
     const live=rp?(rp.k===0?`<b>目前頭獎 ${money(e.pool)}，已經超過這個門檻。</b>`:`目前頭獎 ${money(e.pool)}，還要連槓約 <b>${rp.k}</b> 期才到；照歷史銷售推估，中途都沒人中的機率約 <b>${rp.prob<0.001?'不到 0.1%':pc(rp.prob)}</b>。`):'';
     const term=(b.term||[]).filter(x=>x.ratio>=1.2).map(x=>`${x.dt}：全部獎池 ${x.pool} 億，是當期銷售 ${x.sell} 億的 ${x.ratio.toFixed(2)} 倍；全體玩家實際稅後拿回 ${pc(x.paid)}`).join('；');
     return `<p class="freq-sum"><b>${g.name}</b>：回測 ${b.draws.toLocaleString('en-US')} 期（${b.from.slice(0,4)}～${b.to.slice(0,4)}），每期都買平均拿回 ${pc(all.avg)}。平均拿回超過票價的有 <b>${pos.length}</b> 期${pos.length?`（約每 ${(b.draws/pos.length/(all.perYear||1)).toFixed(1)} 年一期），最近一次 ${last.dt}（頭獎池 ${last.pool} 億、拿回 ${pc(last.ret)}${last.w?`，${last.w} 注中頭獎`:'，沒人中'}）`:''}。</p>
-    <div class="cmp-wrap"><table class="cmp lab"><thead><tr><th>買法</th><th>符合的期數</th><th>每年約幾期</th><th>這些期平均拿回</th><th>每注平均</th></tr></thead><tbody>${rows}</tbody></table></div>
+    <div class="cmp-wrap"><table class="cmp lab"><thead><tr><th>買法</th><th>期數</th><th>每年</th><th>平均拿回</th><th>每注平均</th></tr></thead><tbody>${rows}</tbody></table></div>
     <p class="rule">${b.be?`<b>回本門檻（算進人潮）約 ${b.be} 億</b>：頭獎越高買的人越多、越容易平分，所以比只看目前銷售額算出來的高。`:'照歷史銷售關係，頭獎再高也很難回本（人潮增加得比獎池快）。'}${live}</p>
     <p class="rule">公式準不準：把全部期數依事前算的拿回率分成五組，事前預測 ${b.calib.map(c=>pc(c[0])).join('、')}，事後全體玩家實際（稅後）拿回 ${b.calib.map(c=>pc(c[1])).join('、')}。</p>
     ${b.fwd?`<p class="rule"><b>前瞻測試（不偷看答案）</b>：每年年初只用那之前的期數重新學參數，每一期只用開獎前就知道的資訊（上期累積、上期銷售額）預測，${b.fwd.from.slice(0,4)} 年起考了 ${b.fwd.n.toLocaleString('en-US')} 期，預測和開獎後實算平均只差 ${(b.fwd.mae*100).toFixed(1)} 個百分點。事後真的超過票價的 ${b.fwd.caught[1]} 期，開獎前有 ${b.fwd.caught[0]} 期就預測到 90% 以上。${(()=>{const t=b.fwd.th.find(x=>x.t===100);return t&&t.n?`開獎前就預測「超過票價」的有 ${t.n} 期，事後實算平均拿回 ${pc(t.act)}。`:''})()}這個測試每週日自動重跑，新開的每一期都會變成新考題。</p>`:''}
@@ -3402,7 +3404,7 @@ function setStyle(v){
 }
 document.querySelectorAll('.style-sw button').forEach(b=>b.onclick=()=>setStyle(b.dataset.style));
 setStyle(store('lucky.style')||'b'); // 預設風格：B 彩券行
-const APP_VER='5.2'; // 每次發布跟 android/build.sh 的 VERSION_NAME 一起改
+const APP_VER='5.2.1'; // 每次發布跟 android/build.sh 的 VERSION_NAME 一起改
 $('appVer').textContent='版本 '+APP_VER;
 $('gearBtn').onclick=e=>{e.stopPropagation();const p=$('settingsPanel'),o=p.hidden;p.hidden=!o;$('gearBtn').setAttribute('aria-expanded',String(o))};
 document.addEventListener('click',e=>{const p=$('settingsPanel');if(!p.hidden&&!e.target.closest('#settingsPanel,#gearBtn')){p.hidden=true;$('gearBtn').setAttribute('aria-expanded','false')}});
