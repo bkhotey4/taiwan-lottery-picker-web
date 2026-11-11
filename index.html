@@ -93,7 +93,7 @@ button:focus-visible,input:focus-visible,select:focus-visible{outline:3px solid 
 .slip{background:var(--paper);border:1.5px solid var(--line);border-radius:14px;padding:18px;display:flex;flex-direction:column;gap:14px}
 .rule{font-size:13px;color:var(--muted);display:flex;flex-wrap:wrap;gap:6px 16px}
 .rule b{color:var(--ink);font-family:var(--f-num)}
-#rsBT .rule{display:block;margin:10px 0 0;line-height:1.7}#rsBT .freq-sum{margin:14px 0 6px;line-height:1.7}#rsBT .freq-sum:first-child{margin-top:0}#rsBT .cmp th,#rsBT .cmp td{padding:7px 4px}
+#rsBT .rule{display:block;margin:10px 0 0;line-height:1.7}#rsBT .freq-sum{margin:14px 0 6px;line-height:1.7}#rsBT .freq-sum:first-child{margin-top:0}#rsBT .cmp th,#rsBT .cmp td,#cmpTable th,#cmpTable td{padding:7px 4px}
 .sets{display:flex;flex-direction:column;gap:10px;min-height:52px}
 .set{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding-block:6px;border-bottom:1px dashed var(--line)}
 .set:last-child{border-bottom:0}
@@ -817,16 +817,27 @@ body.can-save .save{display:inline-block}
     <p class="note">「全包」是把你選的號碼所有組合都買下來。「縮水」用數學的覆蓋設計（covering design），挑出最少的組合，保證「開出的號碼有 m 個落在你選的號碼裡時，至少一注中 t 個」，注數少很多，但只保證到那個獎，中頭獎機率也跟著變小。不管哪一種，頭獎機率都跟隨機買同樣注數一樣，平均拿回的錢也一樣。</p>
   </section>
 
-  <section class="slip" id="budgetBox" data-tab="ana" aria-label="預算比較">
-    <h2>同樣的預算，玩哪個比較容易中？</h2>
-    <label class="field">每期預算（元）
-      <input id="budget" type="number" min="25" max="100000" step="25" inputmode="numeric" value="100">
-    </label>
-    <div class="cmp-wrap"><table class="cmp">
-      <thead><tr><th>彩種</th><th>每注</th><th>可買</th><th>至少中一個獎</th><th>中頭獎</th></tr></thead>
+  <section class="slip" id="budgetBox" data-tab="ana" aria-label="依目標比較各玩法">
+    <h2>依你的目標，玩哪個比較好？</h2>
+    <div class="controls">
+      <label class="field">每期預算（元）
+        <input id="budget" type="number" min="25" max="100000" step="25" inputmode="numeric" value="100">
+      </label>
+      <label class="field">你想要
+        <select id="goal">
+          <option value="any">常常有中（小獎也好）</option>
+          <option value="ev">賠得最少</option>
+          <option value="mil">中 100 萬以上</option>
+          <option value="jp">中頭獎</option>
+        </select>
+      </label>
+    </div>
+    <p class="ev-line" id="goalPick"></p>
+    <div class="cmp-wrap"><table class="cmp" id="cmpTable">
+      <thead id="cmpHead"></thead>
       <tbody id="cmpRows"></tbody>
     </table></div>
-    <p class="note">每注號碼都不一樣時的機率。中獎機會越高的彩種，獎金通常越小；彩券平均拿回來的錢比花出去的少，買越多平均虧越多，先訂好預算再玩。3星／4星的「頭獎」是獎金固定的壹獎。</p>
+    <p class="note">機率是每注號碼都不一樣時、買這一期的機率；平均拿回用這一期實算（頭獎、貳獎用本期累積並算進平分，其他獎項用最近幾期平均，扣 20.4% 稅）。目標不同，答案就不同：常中的玩法獎金小，拚大獎的幾乎每次都槓龜。每一種平均都是虧的，請只用娛樂預算。</p>
   </section>
 
   <section class="slip" id="simBox" data-tab="ana" aria-label="長期模擬">
@@ -1674,18 +1685,52 @@ function renderLab(){
 
 // ---- 預算比較：每注價格（元） ----
 const PRICE={lotto:50,power:100,d539:50,s3:25,s4:25};
-function renderBudget(){
-  let b=Math.floor(Number($('budget').value)); if(!Number.isFinite(b)||b<0)b=0; b=Math.min(b,100000);
-  const rows=Object.keys(GAMES).map(id=>{
-    const t=TIERS[id], n=Math.min(Math.floor(b/PRICE[id]),t.total);
+// ---- 依目標比較各玩法：同樣的預算，各彩種這一期的中獎機率與平均拿回 ----
+const GOALS={any:'至少中一個獎',ev:'平均拿回',mil:'中 100 萬以上',jp:'中頭獎'};
+function goalPick(rows,goal){ // 純函式：依目標挑最好的彩種（買不到 1 注的不算；頭獎不比 3星／4星的壹獎）
+  const ok=rows.filter(r=>r.n>0&&(goal!=='jp'||!r.digits)&&(goal!=='ev'||r.ret!=null));
+  if(!ok.length)return null;
+  const key={any:r=>r.any,ev:r=>r.ret,mil:r=>r.mil,jp:r=>r.jp}[goal]||(r=>r.any);
+  return ok.reduce((best,r)=>key(r)>key(best)?r:best);
+}
+function budgetRows(b){
+  return Object.keys(GAMES).map(id=>{
+    const t=TIERS[id], price=PRICE[id], n=Math.min(Math.floor(b/price),t.total), dg=!!GAMES[id].digits;
     const p=t.list.reduce((a,x)=>a+x[2],0)/t.total;
     const any=t.list.length===1?n/t.total:1-Math.pow(1-p,n); // 只有一種獎項時不同號碼互斥，直接相加
-    return{id,n,any,jp:n*t.list[0][2]/t.total};
+    const mp=millionProb(id), mil=1-Math.pow(1-mp.p,n);
+    const pt=prizeTableFor(id), ev=pt?pt.table.reduce((a,x)=>a+x.p*x.net,0):null;
+    const pd=!dg&&popData(id), e=!dg&&latest[id]&&evCalc(id,latest[id].evd,pd&&pd.w,offJackpot(id));
+    const common=t.list.reduce((a,x)=>x[2]>a[2]?x:a), ca=tierAmount(id,common[0]);
+    return{id,n,price,digits:dg,any,mil,milNames:mp.names,jp:n*t.list[0][2]/t.total,ret:ev!=null?ev/price:null,loss:ev!=null?n*(price-ev):null,
+      retLeast:e&&e.evLeast?e.evLeast/price:null,pool:e&&e.pool,common:common[0],commonAmt:ca&&ca.amt,draws:DRAW_DAYS[id].length*52};
   });
-  // 3星／4星的「頭獎」其實是獎金固定的壹獎，不跟大樂透等的頭獎比
-  const bestAny=Math.max(...rows.map(r=>r.any)), bestJp=Math.max(...rows.filter(r=>!GAMES[r.id].digits).map(r=>r.jp));
-  $('cmpRows').innerHTML=rows.map(r=>{const dg=!!GAMES[r.id].digits;return`<tr class="${r.id===cur?'cur':''}"><td>${GAMES[r.id].name}</td><td>${PRICE[r.id]}</td><td>${r.n} 注</td>`+
-    (r.n?`<td class="${r.any===bestAny?'best':''}">${(TIERS[r.id].list.length>1&&r.n>1?'約 ':'')+pct(r.any)}</td><td class="${!dg&&r.jp===bestJp?'best':''}">${oneIn(r.jp)}${dg?'<br><span class="rule">壹獎</span>':''}</td>`:'<td>—</td><td>—</td>')+'</tr>'}).join('');
+}
+function renderBudget(){
+  let b=Math.floor(Number($('budget').value)); if(!Number.isFinite(b)||b<0)b=0; b=Math.min(b,100000);
+  const goal=GOALS[$('goal').value]?$('goal').value:'any', rows=budgetRows(b), best=goalPick(rows,goal);
+  const oneInS=p=>{const x=1/p;return x>=1e4?'1/'+Math.round(x/1e4).toLocaleString('en-US')+' 萬':oneIn(p)}; // 表格用短寫法
+  const pc=x=>(x*100).toFixed(1).replace(/\.0$/,'')+'%', yuan=x=>Math.round(x).toLocaleString('en-US')+' 元';
+  const metric=r=>goal==='ev'?(r.ret!=null?pc(r.ret):'—'):goal==='any'?((TIERS[r.id].list.length>1&&r.n>1?'約 ':'')+pct(r.any)):goal==='mil'?(r.mil>0?oneInS(r.mil):'不會到'):r.digits?'—':oneInS(r.jp);
+  const short={any:'有中獎',ev:'平均拿回',mil:'百萬以上',jp:'中頭獎'}[goal];
+  $('cmpHead').innerHTML=`<tr><th>彩種</th><th>可買</th><th>${short}</th>${goal==='ev'?'':'<th>拿回</th>'}<th>平均賠</th></tr>`;
+  // 依目標排序（買不到的排最後）
+  const key={any:r=>r.any,ev:r=>r.ret??-1,mil:r=>r.mil,jp:r=>r.digits?-1:r.jp}[goal];
+  const sorted=rows.slice().sort((x,y)=>(y.n>0)-(x.n>0)||key(y)-key(x));
+  $('cmpRows').innerHTML=sorted.map(r=>`<tr class="${best&&r.id===best.id?'cur':''}"><td>${GAMES[r.id].name}<br><span class="rule">每注 ${r.price} 元</span></td><td>${r.n} 注</td>`+
+    (r.n?`<td class="${best&&r.id===best.id?'best':''}">${metric(r)}</td>${goal==='ev'?'':`<td>${r.ret!=null?pc(r.ret):'—'}</td>`}<td>${r.loss!=null?(r.loss>=0?yuan(r.loss):'賺 '+yuan(-r.loss)):'—'}</td>`:(goal==='ev'?'<td>—</td><td>—</td>':'<td>—</td><td>—</td><td>—</td>'))+'</tr>').join('');
+  const g=best&&GAMES[best.id], el=$('goalPick');
+  if(!best){el.innerHTML=b>0?(goal==='jp'?`預算 ${b} 元買不到 1 注有頭獎的彩種（今彩539、大樂透每注 50 元）。`:`預算 ${b} 元買不到 1 注（最便宜的 3星／4星每注 25 元）。`):'先輸入每期預算。';return}
+  const yr=best.loss!=null?`每期都這樣買，一年約 ${best.draws} 期，平均賠約 <b>${yuan(best.loss*best.draws)}</b>（花 ${yuan(best.n*best.price*best.draws)}）。`:'';
+  let msg='';
+  if(goal==='any')msg=`<b>${g.name}</b>：買 ${best.n} 注，這期有中獎的機率約 <b>${pct(best.any)}</b>，中的最常是「${best.common}」${best.commonAmt?`（約 ${yuan(best.commonAmt)}）`:''}。常中的代價是獎金小，平均拿回 ${best.ret!=null?pc(best.ret):'—'}。${yr}`;
+  else if(goal==='ev'){const sig=!best.digits&&best.id!=='d539'&&gameSignal(best.id);
+    msg=`<b>${g.name}</b>：這期平均拿回 <b>${pc(best.ret)}</b>，買 ${best.n} 注平均賠 ${yuan(best.loss)}。`+
+      (best.retLeast&&best.retLeast>best.ret+0.002?`選最少人選的組合（「挑號碼 → 挑少人選的號碼」）約可拉到 <b>${pc(best.retLeast)}</b>。`:'')+
+      `大樂透、威力彩的拿回會隨頭獎累積變動，累積高時會超過其他玩法：回測只在拿回 ≥ 80% 的期數才買大樂透，平均拿回 91%、每年約 3.5 期，賠得比每期都買少很多。${sig&&sig.on?'<b>現在燈號是綠燈</b>。':'看「出手燈號」決定哪期出手。'}`+yr}
+  else if(goal==='mil')msg=`<b>${g.name}</b>：買 ${best.n} 注，這期中 100 萬以上（${best.milNames.join('、')}）的機率約 <b>${oneIn(best.mil)}</b>，平均拿回 ${best.ret!=null?pc(best.ret):'—'}。${yr}`;
+  else msg=`<b>${g.name}</b>：買 ${best.n} 注，中頭獎的機率約 <b>${oneIn(best.jp)}</b>${best.pool?`，這期頭獎約 ${money(best.pool)}`:''}。${(()=>{const big=rows.filter(r=>r.pool&&r.id!==best.id).map(r=>`${GAMES[r.id].name}約 ${money(r.pool)}`);return big.length?`機率最高的頭獎通常最小；這期${big.join('、')}。`:''})()}中頭獎機率每組都一樣，選號提高不了；想中了少人分，就選少人選的號碼。${yr}`;
+  el.innerHTML=msg;
 }
 function oneIn(p){const x=1/p;return '1 / '+(x<100?x.toFixed(1):Math.round(x).toLocaleString('en-US'))}
 function pct(p){return (p>=0.01?(p*100).toFixed(1):(p*100).toPrecision(2))+'%'}
@@ -3328,7 +3373,7 @@ if(location.protocol==='https:'){
 }
 // 跳轉按鈕：對應區塊隱藏時（例如 3星彩沒有包牌）按鈕也跟著藏起來
 // ---- 比較少用的區塊預設收合，只顯示標題和一句說明（展開狀態記在這台裝置） ----
-const FOLD={lifeBox:'每週花多少、買幾年：539、大樂透、威力彩中過頭獎的機率差多少',researchBox:'學術研究用過的隨機性檢定，套在全部歷年＋最新開獎上自動重算；附相關論文',labBox:'13 種預測方法（含貝氏、馬可夫鏈等數學模型）的回測、最近每一期的比對、AI 事先存好的預測',wheelBox:'輸入 7–16 個號碼，算包牌要幾注、花多少、中獎機率',budgetBox:'同樣的錢買不同彩種，哪個比較容易中',checkBox:'輸入自己的號碼：歷年會中幾次、多少人選、萬一中頭獎實拿多少；也能查某一期開了什麼',simBox:'每期買幾注、連買幾年，模擬 2,000 個人最後賺賠的分布',freqBox:'每個號碼歷年開出幾次，跟公平抽球比較'};
+const FOLD={lifeBox:'每週花多少、買幾年：539、大樂透、威力彩中過頭獎的機率差多少',researchBox:'學術研究用過的隨機性檢定，套在全部歷年＋最新開獎上自動重算；附相關論文',labBox:'13 種預測方法（含貝氏、馬可夫鏈等數學模型）的回測、最近每一期的比對、AI 事先存好的預測',wheelBox:'輸入 7–16 個號碼，算包牌要幾注、花多少、中獎機率',budgetBox:'選你要的（常中、賠最少、拚百萬、拚頭獎），用這期實算比較各彩種',checkBox:'輸入自己的號碼：歷年會中幾次、多少人選、萬一中頭獎實拿多少；也能查某一期開了什麼',simBox:'每期買幾注、連買幾年，模擬 2,000 個人最後賺賠的分布',freqBox:'每個號碼歷年開出幾次，跟公平抽球比較'};
 function bindFold(){
   let open=store('lucky.fold'); if(!open||typeof open!=='object')open={};
   for(const [id,hint] of Object.entries(FOLD)){
@@ -3368,7 +3413,8 @@ document.querySelectorAll('.jump a').forEach(a=>{
 });
 $('avoid').onchange=()=>{avoid=$('avoid').checked;store('lucky.avoid',avoid);renderAvoid();run(true)};
 $('spread').onchange=()=>{spread=$('spread').checked;store('lucky.spread',spread);renderAvoid();run(true)};
-{const sb=store('lucky.budget'); if(Number.isFinite(sb)&&sb>=0)$('budget').value=sb;}
+{const sb=store('lucky.budget'); if(Number.isFinite(sb)&&sb>=0)$('budget').value=sb; const sg=store('lucky.goal'); if(GOALS[sg])$('goal').value=sg;}
+$('goal').addEventListener('change',()=>{store('lucky.goal',$('goal').value);renderBudget()});
 $('budget').addEventListener('input',()=>{renderBudget();const v=Math.floor(Number($('budget').value));if(Number.isFinite(v)&&v>=0)store('lucky.budget',v)});
 $('count').onchange=()=>run(true);
 $('must').addEventListener('keydown',e=>{if(e.key==='Enter')run(true)});
@@ -3404,7 +3450,7 @@ function setStyle(v){
 }
 document.querySelectorAll('.style-sw button').forEach(b=>b.onclick=()=>setStyle(b.dataset.style));
 setStyle(store('lucky.style')||'b'); // 預設風格：B 彩券行
-const APP_VER='5.2.1'; // 每次發布跟 android/build.sh 的 VERSION_NAME 一起改
+const APP_VER='5.3'; // 每次發布跟 android/build.sh 的 VERSION_NAME 一起改
 $('appVer').textContent='版本 '+APP_VER;
 $('gearBtn').onclick=e=>{e.stopPropagation();const p=$('settingsPanel'),o=p.hidden;p.hidden=!o;$('gearBtn').setAttribute('aria-expanded',String(o))};
 document.addEventListener('click',e=>{const p=$('settingsPanel');if(!p.hidden&&!e.target.closest('#settingsPanel,#gearBtn')){p.hidden=true;$('gearBtn').setAttribute('aria-expanded','false')}});
