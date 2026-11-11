@@ -1179,11 +1179,11 @@ function renderBacktest(){
     <div class="cmp-wrap"><table class="cmp lab"><thead><tr><th>買法</th><th>期數</th><th>每年</th><th>平均拿回</th><th>每注平均</th></tr></thead><tbody>${rows}</tbody></table></div>
     <p class="rule">${b.be?`<b>回本門檻（算進人潮）約 ${b.be} 億</b>：頭獎越高買的人越多、越容易平分，所以比只看目前銷售額算出來的高。`:'照歷史銷售關係，頭獎再高也很難回本（人潮增加得比獎池快）。'}${live}</p>
     ${b.un&&b.un.be?`<p class="rule"><b>用少人選的號碼，門檻約 ${b.un.be} 億</b>：抗平分 90 分的組合（比 90% 的隨機組合少人選）選的人約是平均的 ${b.un.m.toFixed(2)} 倍，中了比較少人分。照這個倍數重算，歷年平均拿回超過票價的有 <b>${b.un.n}</b> 期（約每年 ${b.un.perYear.toFixed(1)} 期，這些期平均拿回 ${pc(b.un.avg)}），一般號碼是 ${pos.length} 期。${(()=>{const r2=e&&e.pool>0?reachProb(id,e.pool/1e8,b.un.be):null;return r2?(r2.k===0?'<b>目前頭獎已經超過這個門檻。</b>':`目前還要連槓約 <b>${r2.k}</b> 期，機率約 <b>${r2.prob<0.001?'不到 0.1%':pc(r2.prob)}</b>。`):''})()}中頭獎的機率不變，只是中了分到比較多。</p>`:''}
-    ${(()=>{const f=stats.games[id].pop&&stats.games[id].pop.fwd; if(!f||!Array.isArray(f.bins)||f.bins.length!==3)return'';
-      const nm=['少人選的三分之一','中間','多人選的三分之一'];
-      return `<p class="rule"><b>少人選真的比較少人分嗎（不偷看答案）</b>：每兩年只用那之前的期數估每個號碼的熱門度，去預測之後兩年每期開出的那組號碼有多少人選，${f.from.slice(0,4)} 年起考了 ${f.n.toLocaleString('en-US')} 期，再依預測分三組，看實際中頭獎的注數是「大家平均選號」時的幾倍：</p>
-      <div class="cmp-wrap"><table class="cmp lab"><thead><tr><th>開出的號碼</th><th>模型預測</th><th>實際</th><th>頭獎注數</th></tr></thead><tbody>${f.bins.map((x,i)=>`<tr><td>${nm[i]}</td><td>${x.pred.toFixed(2)} 倍</td><td>${x.ratio.toFixed(2)} 倍<br><span class="rule">± ${x.err.toFixed(2)}</span></td><td>${x.act}</td></tr>`).join('')}</tbody></table></div>
-      <p class="rule">${f.bins[0].ratio<1&&f.bins[0].ratio<=f.bins[0].pred+f.bins[0].err?`開出少人選的號碼時，中頭獎的人真的比較少，而且模型沒有高估這個差距`:`這次驗證裡，少人選的號碼沒有明顯比較少人分，上面的門檻請保守看待`}${f.se!=null?`（把實際注數對預測倍數做迴歸，斜率 ${f.b.toFixed(2)} ± ${f.se.toFixed(2)}；1 代表模型剛好，小於 1 代表高估）`:''}。± 是抽樣誤差（約 95%）。每週日自動重學重考。</p>`})()}
+    ${(()=>{const f=stats.games[id].pop&&stats.games[id].pop.fwd; if(!f||!Array.isArray(f.bins)||f.bins.length!==3||!f.sec)return'';
+      const nm=['少人選的三分之一','中間','多人選的三分之一'], sl=x=>x&&x.se!=null?`${x.b.toFixed(2)} ± ${x.se.toFixed(2)}（${x.n.toLocaleString('en-US')} 注）`:'—';
+      return `<p class="rule"><b>少人選真的比較少人分嗎（不偷看答案）</b>：每兩年只用那之前的期數估每個號碼的熱門度，去預測之後兩年每期開出的號碼有多少人選，${f.from.slice(0,4)} 年起考了 ${f.n.toLocaleString('en-US')} 期。考題是頭獎和貳獎（都是整組號碼幾乎全中，貳獎沒有拿來學），依預測分三組，看實際中獎注數是「大家平均選號」時的幾倍：</p>
+      <div class="cmp-wrap"><table class="cmp lab"><thead><tr><th>開出的號碼</th><th>模型預測</th><th>實際</th><th>注數</th></tr></thead><tbody>${f.bins.map((x,i)=>`<tr><td>${nm[i]}</td><td>${x.pred.toFixed(2)} 倍</td><td>${x.ratio.toFixed(2)} 倍<br><span class="rule">± ${x.err.toFixed(2)}</span></td><td>${x.act}</td></tr>`).join('')}</tbody></table></div>
+      <p class="rule">${f.pass?`<b>通過</b>：開出少人選的號碼時，中獎的人真的比較少。`:`<b>沒通過</b>：這個彩種看不出少人選的號碼比較少人分，所以不提供「少人選號碼」的出手門檻，抗平分分數在這裡只能當參考。`}把實際注數對預測倍數做迴歸（1 代表模型剛好，0 代表沒有差別）：頭獎＋貳獎 ${sl({b:f.b,se:f.se,n:f.wins})}；只看頭獎 ${sl(f.jp)}，只看貳獎 ${sl(f.sec)}。± 是標準誤，表格的 ± 是抽樣誤差（約 95%）。每週日自動重學重考。</p>`})()}
     <p class="rule">公式準不準：把全部期數依事前算的拿回率分成五組，事前預測 ${b.calib.map(c=>pc(c[0])).join('、')}，事後全體玩家實際（稅後）拿回 ${b.calib.map(c=>pc(c[1])).join('、')}。</p>
     ${b.fwd?`<p class="rule"><b>前瞻測試（不偷看答案）</b>：每年年初只用那之前的期數重新學參數，每一期只用開獎前就知道的資訊（上期累積、上期銷售額）預測，${b.fwd.from.slice(0,4)} 年起考了 ${b.fwd.n.toLocaleString('en-US')} 期，預測和開獎後實算平均只差 ${(b.fwd.mae*100).toFixed(1)} 個百分點。事後真的超過票價的 ${b.fwd.caught[1]} 期，開獎前有 ${b.fwd.caught[0]} 期就預測到 90% 以上。${(()=>{const t=b.fwd.th.find(x=>x.t===100);return t&&t.n?`開獎前就預測「超過票價」的有 ${t.n} 期，事後實算平均拿回 ${pc(t.act)}。`:''})()}這個測試每週日自動重跑，新開的每一期都會變成新考題。</p>`:''}
     <p class="rule">凱利公式：連最划算的那一期（${b.best.dt}，拿回 ${pc(b.best.ret)}），也要有約 <b>${b.kelly.need} 億</b>資產，買 1 注才不算下太重。原因是中頭獎的機率太小，期望值是正的也幾乎都會賠掉這一注。所以「超過票價」只代表娛樂成本降到零以下，不是投資。</p>
@@ -3458,7 +3458,7 @@ function setStyle(v){
 }
 document.querySelectorAll('.style-sw button').forEach(b=>b.onclick=()=>setStyle(b.dataset.style));
 setStyle(store('lucky.style')||'b'); // 預設風格：B 彩券行
-const APP_VER='5.4'; // 每次發布跟 android/build.sh 的 VERSION_NAME 一起改
+const APP_VER='5.5'; // 每次發布跟 android/build.sh 的 VERSION_NAME 一起改
 $('appVer').textContent='版本 '+APP_VER;
 $('gearBtn').onclick=e=>{e.stopPropagation();const p=$('settingsPanel'),o=p.hidden;p.hidden=!o;$('gearBtn').setAttribute('aria-expanded',String(o))};
 document.addEventListener('click',e=>{const p=$('settingsPanel');if(!p.hidden&&!e.target.closest('#settingsPanel,#gearBtn')){p.hidden=true;$('gearBtn').setAttribute('aria-expanded','false')}});
