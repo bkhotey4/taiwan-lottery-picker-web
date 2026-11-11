@@ -93,7 +93,7 @@ button:focus-visible,input:focus-visible,select:focus-visible{outline:3px solid 
 .slip{background:var(--paper);border:1.5px solid var(--line);border-radius:14px;padding:18px;display:flex;flex-direction:column;gap:14px}
 .rule{font-size:13px;color:var(--muted);display:flex;flex-wrap:wrap;gap:6px 16px}
 .rule b{color:var(--ink);font-family:var(--f-num)}
-#rsBT .rule{display:block;margin:10px 0 0;line-height:1.7}#rsBT .freq-sum{margin:14px 0 6px;line-height:1.7}#rsBT .freq-sum:first-child{margin-top:0}#rsBT .cmp th,#rsBT .cmp td,#cmpTable th,#cmpTable td{padding:7px 4px}
+#rsBT .rule{display:block;margin:10px 0 0;line-height:1.7}#rsBT .freq-sum{margin:14px 0 6px;line-height:1.7}#rsBT .freq-sum:first-child{margin-top:0}#rsBT .cmp td .rule{display:inline;margin:0}#rsBT .cmp th,#rsBT .cmp td,#cmpTable th,#cmpTable td{padding:7px 4px}
 .sets{display:flex;flex-direction:column;gap:10px;min-height:52px}
 .set{display:flex;align-items:center;gap:8px;flex-wrap:wrap;padding-block:6px;border-bottom:1px dashed var(--line)}
 .set:last-child{border-bottom:0}
@@ -1144,7 +1144,9 @@ function gameSignal(id){
       else if(id!=='d539'&&jpS>=3)why.push(`頭獎連 ${jpS} 期沒人中，但平均拿回只比平常多 ${Math.round(up*100)}%（還不到綠燈的 30%）`);
       const rp=id!=='d539'&&e.pool>0?reachProb(id,e.pool/1e8):null;
       if(rp&&rp.k===0){on=true;why.push(`<b>超過歷史回本門檻</b>（約 ${rp.be} 億）：歷年回測裡，這種期的平均拿回超過票價`)}
-      else if(rp&&jpS>=1)why.push(`離回本門檻（約 ${rp.be} 億）還要連槓約 ${rp.k} 期，機率約 ${rp.prob<0.001?'不到 0.1%':(rp.prob*100).toFixed(rp.prob<0.1?1:0)+'%'}`);
+      else{const bu=id!=='d539'&&evbtOf(id)&&evbtOf(id).un, ru=bu&&bu.be>0&&e.pool>0?reachProb(id,e.pool/1e8,bu.be):null, pp=x=>x.prob<0.001?'不到 0.1%':(x.prob*100).toFixed(x.prob<0.1?1:0)+'%';
+        if(ru&&ru.k===0){on=true;why.push(`<b>用少人選的號碼已超過回本門檻</b>（約 ${bu.be} 億；一般號碼要約 ${rp?rp.be:'—'} 億）：中了比較少人分，這個差距用舊資料學、新資料考驗證過。請用「挑少人選的號碼」、抗平分 90 分以上的組合`)}
+        else if(rp&&jpS>=1)why.push(`離回本門檻（約 ${rp.be} 億）還要連槓約 ${rp.k} 期，機率約 ${pp(rp)}`+(ru?`；用少人選的號碼門檻約 ${bu.be} 億，還要約 ${ru.k} 期，機率約 ${pp(ru)}`:''))}
       if(e.sec&&e.sec.streak>=2&&e.sec.pool>=2*e.sec.typical){on=true;why.push(`<b>貳獎連 ${e.sec.streak} 期沒人中</b>：這期貳獎總額約 ${money(e.sec.pool)}，平常約 ${money(e.sec.typical)}`)}
       else if(e.sec&&e.sec.streak>=1)why.push(`貳獎連 ${e.sec.streak} 期沒人中，累積 ${money(e.sec.carry)}`);
     }
@@ -1160,11 +1162,11 @@ function salesAt(pts,Py){
   return Math.exp(Math.log(y0)+(Math.log(y1)-Math.log(y0))*Math.max(t,0));
 }
 // 從目前頭獎池連槓到「回本門檻」的機率：每一期沒人中的機率是 e^(−λ)，銷售照歷史關係跟著獎池長大
-function reachProb(id,poolYi){
-  const b=evbtOf(id); if(!b||!(b.be>0)||!(poolYi>0))return null; if(poolYi>=b.be)return{prob:1,k:0,be:b.be};
+function reachProb(id,poolYi,target){
+  const b=evbtOf(id), be=b&&(target>0?target:b.be); if(!b||!(be>0)||!(poolYi>0))return null; if(poolYi>=be)return{prob:1,k:0,be};
   const t=TIERS[id], pJP=t.list[0][2]/t.total, pts=b.sales.pts; let P=poolYi,prob=1,k=0;
-  while(P<b.be&&k<200){const S=salesAt(pts,P); prob*=Math.exp(-S*1e8/PRICE[id]*pJP); P+=b.sales.add*salesAt(pts,P+b.sales.add*S); k++}
-  return{prob,k,be:b.be};
+  while(P<be&&k<200){const S=salesAt(pts,P); prob*=Math.exp(-S*1e8/PRICE[id]*pJP); P+=b.sales.add*salesAt(pts,P+b.sales.add*S); k++}
+  return{prob,k,be};
 }
 function renderBacktest(){
   const box=$('rsBT'); if(!box)return; const pc=x=>(x*100).toFixed(1).replace(/\.0$/,'')+'%';
@@ -1176,6 +1178,12 @@ function renderBacktest(){
     return `<p class="freq-sum"><b>${g.name}</b>：回測 ${b.draws.toLocaleString('en-US')} 期（${b.from.slice(0,4)}～${b.to.slice(0,4)}），每期都買平均拿回 ${pc(all.avg)}。平均拿回超過票價的有 <b>${pos.length}</b> 期${pos.length?`（約每 ${(b.draws/pos.length/(all.perYear||1)).toFixed(1)} 年一期），最近一次 ${last.dt}（頭獎池 ${last.pool} 億、拿回 ${pc(last.ret)}${last.w?`，${last.w} 注中頭獎`:'，沒人中'}）`:''}。</p>
     <div class="cmp-wrap"><table class="cmp lab"><thead><tr><th>買法</th><th>期數</th><th>每年</th><th>平均拿回</th><th>每注平均</th></tr></thead><tbody>${rows}</tbody></table></div>
     <p class="rule">${b.be?`<b>回本門檻（算進人潮）約 ${b.be} 億</b>：頭獎越高買的人越多、越容易平分，所以比只看目前銷售額算出來的高。`:'照歷史銷售關係，頭獎再高也很難回本（人潮增加得比獎池快）。'}${live}</p>
+    ${b.un&&b.un.be?`<p class="rule"><b>用少人選的號碼，門檻約 ${b.un.be} 億</b>：抗平分 90 分的組合（比 90% 的隨機組合少人選）選的人約是平均的 ${b.un.m.toFixed(2)} 倍，中了比較少人分。照這個倍數重算，歷年平均拿回超過票價的有 <b>${b.un.n}</b> 期（約每年 ${b.un.perYear.toFixed(1)} 期，這些期平均拿回 ${pc(b.un.avg)}），一般號碼是 ${pos.length} 期。${(()=>{const r2=e&&e.pool>0?reachProb(id,e.pool/1e8,b.un.be):null;return r2?(r2.k===0?'<b>目前頭獎已經超過這個門檻。</b>':`目前還要連槓約 <b>${r2.k}</b> 期，機率約 <b>${r2.prob<0.001?'不到 0.1%':pc(r2.prob)}</b>。`):''})()}中頭獎的機率不變，只是中了分到比較多。</p>`:''}
+    ${(()=>{const f=stats.games[id].pop&&stats.games[id].pop.fwd; if(!f||!Array.isArray(f.bins)||f.bins.length!==3)return'';
+      const nm=['少人選的三分之一','中間','多人選的三分之一'];
+      return `<p class="rule"><b>少人選真的比較少人分嗎（不偷看答案）</b>：每兩年只用那之前的期數估每個號碼的熱門度，去預測之後兩年每期開出的那組號碼有多少人選，${f.from.slice(0,4)} 年起考了 ${f.n.toLocaleString('en-US')} 期，再依預測分三組，看實際中頭獎的注數是「大家平均選號」時的幾倍：</p>
+      <div class="cmp-wrap"><table class="cmp lab"><thead><tr><th>開出的號碼</th><th>模型預測</th><th>實際</th><th>頭獎注數</th></tr></thead><tbody>${f.bins.map((x,i)=>`<tr><td>${nm[i]}</td><td>${x.pred.toFixed(2)} 倍</td><td>${x.ratio.toFixed(2)} 倍<br><span class="rule">± ${x.err.toFixed(2)}</span></td><td>${x.act}</td></tr>`).join('')}</tbody></table></div>
+      <p class="rule">${f.bins[0].ratio<1&&f.bins[0].ratio<=f.bins[0].pred+f.bins[0].err?`開出少人選的號碼時，中頭獎的人真的比較少，而且模型沒有高估這個差距`:`這次驗證裡，少人選的號碼沒有明顯比較少人分，上面的門檻請保守看待`}${f.se!=null?`（把實際注數對預測倍數做迴歸，斜率 ${f.b.toFixed(2)} ± ${f.se.toFixed(2)}；1 代表模型剛好，小於 1 代表高估）`:''}。± 是抽樣誤差（約 95%）。每週日自動重學重考。</p>`})()}
     <p class="rule">公式準不準：把全部期數依事前算的拿回率分成五組，事前預測 ${b.calib.map(c=>pc(c[0])).join('、')}，事後全體玩家實際（稅後）拿回 ${b.calib.map(c=>pc(c[1])).join('、')}。</p>
     ${b.fwd?`<p class="rule"><b>前瞻測試（不偷看答案）</b>：每年年初只用那之前的期數重新學參數，每一期只用開獎前就知道的資訊（上期累積、上期銷售額）預測，${b.fwd.from.slice(0,4)} 年起考了 ${b.fwd.n.toLocaleString('en-US')} 期，預測和開獎後實算平均只差 ${(b.fwd.mae*100).toFixed(1)} 個百分點。事後真的超過票價的 ${b.fwd.caught[1]} 期，開獎前有 ${b.fwd.caught[0]} 期就預測到 90% 以上。${(()=>{const t=b.fwd.th.find(x=>x.t===100);return t&&t.n?`開獎前就預測「超過票價」的有 ${t.n} 期，事後實算平均拿回 ${pc(t.act)}。`:''})()}這個測試每週日自動重跑，新開的每一期都會變成新考題。</p>`:''}
     <p class="rule">凱利公式：連最划算的那一期（${b.best.dt}，拿回 ${pc(b.best.ret)}），也要有約 <b>${b.kelly.need} 億</b>資產，買 1 注才不算下太重。原因是中頭獎的機率太小，期望值是正的也幾乎都會賠掉這一注。所以「超過票價」只代表娛樂成本降到零以下，不是投資。</p>
@@ -3450,7 +3458,7 @@ function setStyle(v){
 }
 document.querySelectorAll('.style-sw button').forEach(b=>b.onclick=()=>setStyle(b.dataset.style));
 setStyle(store('lucky.style')||'b'); // 預設風格：B 彩券行
-const APP_VER='5.3'; // 每次發布跟 android/build.sh 的 VERSION_NAME 一起改
+const APP_VER='5.4'; // 每次發布跟 android/build.sh 的 VERSION_NAME 一起改
 $('appVer').textContent='版本 '+APP_VER;
 $('gearBtn').onclick=e=>{e.stopPropagation();const p=$('settingsPanel'),o=p.hidden;p.hidden=!o;$('gearBtn').setAttribute('aria-expanded',String(o))};
 document.addEventListener('click',e=>{const p=$('settingsPanel');if(!p.hidden&&!e.target.closest('#settingsPanel,#gearBtn')){p.hidden=true;$('gearBtn').setAttribute('aria-expanded','false')}});
