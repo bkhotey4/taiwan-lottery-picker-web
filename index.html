@@ -1185,7 +1185,7 @@ function renderBacktest(){
       <div class="cmp-wrap"><table class="cmp lab"><thead><tr><th>開出的號碼</th><th>模型預測</th><th>實際</th><th>注數</th></tr></thead><tbody>${f.bins.map((x,i)=>`<tr><td>${nm[i]}</td><td>${x.pred.toFixed(2)} 倍</td><td>${x.ratio.toFixed(2)} 倍<br><span class="rule">± ${x.err.toFixed(2)}</span></td><td>${x.act}</td></tr>`).join('')}</tbody></table></div>
       <p class="rule">${f.pass?`<b>通過</b>：開出少人選的號碼時，中獎的人真的比較少。`:`<b>沒通過</b>：這個彩種看不出少人選的號碼比較少人分，所以不提供「少人選號碼」的出手門檻，抗平分分數在這裡只能當參考。`}把實際注數對預測倍數做迴歸（1 代表模型剛好，0 代表沒有差別）：頭獎＋貳獎 ${sl({b:f.b,se:f.se,n:f.wins})}；只看頭獎 ${sl(f.jp)}，只看貳獎 ${sl(f.sec)}。± 是標準誤，表格的 ± 是抽樣誤差（約 95%）。每週日自動重學重考。</p>`})()}
     <p class="rule">公式準不準：把全部期數依事前算的拿回率分成五組，事前預測 ${b.calib.map(c=>pc(c[0])).join('、')}，事後全體玩家實際（稅後）拿回 ${b.calib.map(c=>pc(c[1])).join('、')}。</p>
-    ${b.fwd?`<p class="rule"><b>前瞻測試（不偷看答案）</b>：每年年初只用那之前的期數重新學參數，每一期只用開獎前就知道的資訊（上期累積、上期銷售額）預測，${b.fwd.from.slice(0,4)} 年起考了 ${b.fwd.n.toLocaleString('en-US')} 期，預測和開獎後實算平均只差 ${(b.fwd.mae*100).toFixed(1)} 個百分點。事後真的超過票價的 ${b.fwd.caught[1]} 期，開獎前有 ${b.fwd.caught[0]} 期就預測到 90% 以上。${(()=>{const t=b.fwd.th.find(x=>x.t===100);return t&&t.n?`開獎前就預測「超過票價」的有 ${t.n} 期，事後實算平均拿回 ${pc(t.act)}。`:''})()}這個測試每週日自動重跑，新開的每一期都會變成新考題。</p>`:''}
+    ${b.fwd?`<p class="rule"><b>前瞻測試（不偷看答案）</b>：每年年初只用那之前的期數重新學參數，每一期只用開獎前就知道的資訊（頭獎與貳獎的上期累積、上期銷售額）預測，${b.fwd.from.slice(0,4)} 年起考了 ${b.fwd.n.toLocaleString('en-US')} 期，預測和開獎後實算平均只差 ${(b.fwd.mae*100).toFixed(1)} 個百分點。事後真的超過票價的 ${b.fwd.caught[1]} 期，開獎前有 ${b.fwd.caught[0]} 期就預測到 90% 以上。${(()=>{const t=b.fwd.th.find(x=>x.t===100);return t&&t.n?`開獎前就預測「超過票價」的有 ${t.n} 期，事後實算平均拿回 ${pc(t.act)}。`:''})()}這個測試每週日自動重跑，新開的每一期都會變成新考題。</p>`:''}
     <p class="rule">凱利公式：連最划算的那一期（${b.best.dt}，拿回 ${pc(b.best.ret)}），也要有約 <b>${b.kelly.need} 億</b>資產，買 1 注才不算下太重。原因是中頭獎的機率太小，期望值是正的也幾乎都會賠掉這一注。所以「超過票價」只代表娛樂成本降到零以下，不是投資。</p>
     ${term?`<p class="rule"><b>屆末最後一期</b>（發行機構十年一屆，最後一期頭獎沒人中會往下分給有人中的獎項，等於整個獎池強制派完）：${term}。這一屆發行到 2033 年底。</p>`:''}`}).filter(Boolean);
   if(!parts.length){box.innerHTML='<p class="rule">歷年資料載入後計算。</p>';return}
@@ -3458,7 +3458,7 @@ function setStyle(v){
 }
 document.querySelectorAll('.style-sw button').forEach(b=>b.onclick=()=>setStyle(b.dataset.style));
 setStyle(store('lucky.style')||'b'); // 預設風格：B 彩券行
-const APP_VER='5.5'; // 每次發布跟 android/build.sh 的 VERSION_NAME 一起改
+const APP_VER='5.5.1'; // 每次發布跟 android/build.sh 的 VERSION_NAME 一起改
 $('appVer').textContent='版本 '+APP_VER;
 $('gearBtn').onclick=e=>{e.stopPropagation();const p=$('settingsPanel'),o=p.hidden;p.hidden=!o;$('gearBtn').setAttribute('aria-expanded',String(o))};
 document.addEventListener('click',e=>{const p=$('settingsPanel');if(!p.hidden&&!e.target.closest('#settingsPanel,#gearBtn')){p.hidden=true;$('gearBtn').setAttribute('aria-expanded','false')}});
