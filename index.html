@@ -1179,7 +1179,7 @@ function renderBacktest(){
     return `<p class="freq-sum"><b>${g.name}</b>：回測 ${b.draws.toLocaleString('en-US')} 期（${b.from.slice(0,4)}～${b.to.slice(0,4)}），每期都買平均拿回 ${pc(all.avg)}。平均拿回超過票價的有 <b>${pos.length}</b> 期${pos.length?`（約每 ${(b.draws/pos.length/(all.perYear||1)).toFixed(1)} 年一期），最近一次 ${last.dt}（頭獎池 ${last.pool} 億、拿回 ${pc(last.ret)}${last.w?`，${last.w} 注中頭獎`:'，沒人中'}）`:''}。</p>
     <div class="cmp-wrap"><table class="cmp lab"><thead><tr><th>買法</th><th>期數</th><th>每年</th><th>平均拿回</th><th>每注平均</th></tr></thead><tbody>${rows}</tbody></table></div>
     <p class="rule">${b.be?`<b>回本門檻（算進人潮）約 ${b.be} 億</b>：頭獎越高買的人越多、越容易平分，所以比只看目前銷售額算出來的高。`:'照歷史銷售關係，頭獎再高也很難回本（人潮增加得比獎池快）。'}${live}</p>
-    ${b.un&&b.un.be?`<p class="rule"><b>用少人選的號碼，門檻約 ${b.un.be} 億</b>：抗平分 90 分的組合（比 90% 的隨機組合少人選）選的人約是平均的 ${b.un.m.toFixed(2)} 倍，中了比較少人分。照這個倍數重算，歷年平均拿回超過票價的有 <b>${b.un.n}</b> 期（約每年 ${b.un.perYear.toFixed(1)} 期，這些期平均拿回 ${pc(b.un.avg)}），一般號碼是 ${pos.length} 期。${(()=>{const r2=e&&e.pool>0?reachProb(id,e.pool/1e8,b.un.be):null;return r2?(r2.k===0?'<b>目前頭獎已經超過這個門檻。</b>':`目前還要連槓約 <b>${r2.k}</b> 期，機率約 <b>${r2.prob<0.001?'不到 0.1%':pc(r2.prob)}</b>。`):''})()}中頭獎的機率不變，只是中了分到比較多。</p>`:''}
+    ${b.un&&b.un.be?`<p class="rule"><b>用少人選的號碼，門檻約 ${b.un.be} 億</b>：抗平分 90 分的組合（比 90% 的隨機組合少人選）選的人約是平均的 ${b.un.m.toFixed(2)} 倍，中了比較少人分。${id==='lotto'?'除了頭獎、貳獎，參獎和肆獎也是中的人平分，少人選的組合每注再多約 0.7 個百分點（不偷看答案的測試，兩套程式各自算出一樣的數字）。':''}照這個倍數重算，歷年平均拿回超過票價的有 <b>${b.un.n}</b> 期（約每年 ${b.un.perYear.toFixed(1)} 期，這些期平均拿回 ${pc(b.un.avg)}），一般號碼是 ${pos.length} 期。${(()=>{const r2=e&&e.pool>0?reachProb(id,e.pool/1e8,b.un.be):null;return r2?(r2.k===0?'<b>目前頭獎已經超過這個門檻。</b>':`目前還要連槓約 <b>${r2.k}</b> 期，機率約 <b>${r2.prob<0.001?'不到 0.1%':pc(r2.prob)}</b>。`):''})()}中頭獎的機率不變，只是中了分到比較多。</p>`:''}
     ${(()=>{const f=stats.games[id].pop&&stats.games[id].pop.fwd; if(!f||!Array.isArray(f.bins)||f.bins.length!==3||!f.sec)return'';
       const nm=['少人選的三分之一','中間','多人選的三分之一'], sl=x=>x&&x.se!=null?`${x.b.toFixed(2)} ± ${x.se.toFixed(2)}（${x.n.toLocaleString('en-US')} 注）`:'—';
       return `<p class="rule"><b>少人選真的比較少人分嗎（不偷看答案）</b>：每兩年只用那之前的期數估每個號碼的熱門度，去預測之後兩年每期開出的號碼有多少人選，${f.from.slice(0,4)} 年起考了 ${f.n.toLocaleString('en-US')} 期。考題是頭獎和貳獎（都是整組號碼幾乎全中，貳獎沒有拿來學），依預測分三組，看實際中獎注數是「大家平均選號」時的幾倍：</p>
@@ -3459,7 +3459,7 @@ function setStyle(v){
 }
 document.querySelectorAll('.style-sw button').forEach(b=>b.onclick=()=>setStyle(b.dataset.style));
 setStyle(store('lucky.style')||'b'); // 預設風格：B 彩券行
-const APP_VER='5.5.2'; // 每次發布跟 android/build.sh 的 VERSION_NAME 一起改
+const APP_VER='5.5.3'; // 每次發布跟 android/build.sh 的 VERSION_NAME 一起改
 $('appVer').textContent='版本 '+APP_VER;
 $('gearBtn').onclick=e=>{e.stopPropagation();const p=$('settingsPanel'),o=p.hidden;p.hidden=!o;$('gearBtn').setAttribute('aria-expanded',String(o))};
 document.addEventListener('click',e=>{const p=$('settingsPanel');if(!p.hidden&&!e.target.closest('#settingsPanel,#gearBtn')){p.hidden=true;$('gearBtn').setAttribute('aria-expanded','false')}});
