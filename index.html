@@ -127,6 +127,7 @@ button:focus-visible,input:focus-visible,select:focus-visible{outline:3px solid 
 #sets .ball,#latestBalls .ball,#todayList .ball,#recOut .ball,#labPreds .ball,#aiPreds .ball,#ckOut .ball{cursor:pointer}
 #nextDraw .upd{color:var(--muted);font-size:12px}
 #nextDraw .warn{color:var(--accent);font-size:12px}
+.rule.warn{color:var(--accent);border-left:3px solid var(--accent);padding-left:8px}
 #labBox.digits .ml-only{display:none}
 .today-list{display:grid;gap:10px;margin-top:8px}
 .sig-head{margin:4px 0 8px;font-size:15px;font-weight:700}.sig-list{display:grid;gap:6px}
@@ -801,7 +802,7 @@ body.can-save .save{display:inline-block}
         <input id="wheelZ2" inputmode="numeric" placeholder="例如 2 7">
       </label>
       <label class="field" id="wheelZ2HowWrap" hidden>第二區配法
-        <select id="wheelZ2How"><option value="all">每組都配全部第二區</option><option value="rot">輪流配（注數少很多）</option></select>
+        <select id="wheelZ2How"><option value="rot">輪流配（建議：注數少很多）</option><option value="all">每組都配全部第二區（不建議：貳獎自己跟自己分）</option></select>
       </label>
       <button type="button" class="ghost" id="wheelRand">隨機挑號碼</button>
       <button type="button" class="ghost" id="wheelAll539" hidden>39 碼全包保底輪盤</button>
@@ -814,7 +815,7 @@ body.can-save .save{display:inline-block}
     <div id="wheelCascade"></div>
     <details class="tiers" id="wheelListWrap"><summary id="wheelListSum">展開全部組合</summary><div class="hist" id="wheelList"></div></details>
     <div class="row"><button type="button" class="ghost" id="wheelCopy">複製全部組合</button><span class="rule" id="wheelCopied"></span></div>
-    <p class="note">「全包」是把你選的號碼所有組合都買下來。「縮水」用數學的覆蓋設計（covering design），挑出最少的組合，保證「開出的號碼有 m 個落在你選的號碼裡時，至少一注中 t 個」，注數少很多，但只保證到那個獎，中頭獎機率也跟著變小。不管哪一種，頭獎機率都跟隨機買同樣注數一樣，平均拿回的錢也一樣。</p>
+    <p class="note">「全包」是把你選的號碼所有組合都買下來。「縮水」用數學的覆蓋設計（covering design），挑出最少的組合，保證「開出的號碼有 m 個落在你選的號碼裡時，至少一注中 t 個」，注數少很多，但只保證到那個獎，中頭獎機率也跟著變小。不管哪一種，頭獎機率都跟隨機買同樣注數一樣，平均拿回的錢也差不多（大樂透包牌只少約 0.1～0.6 個百分點）。<b>威力彩例外：不要第二區全包</b>，同一組第一區配多個第二區時，第一區全中會變成 1 注頭獎＋好幾注貳獎，<b>貳獎是自己跟自己平分</b>，每注平均少拿約 1.5～3.2 個百分點，貳獎累積高的時候少 20 個百分點以上；改用「輪流配」就不會。</p>
   </section>
 
   <section class="slip" id="budgetBox" data-tab="ana" aria-label="依目標比較各玩法">
@@ -1053,7 +1054,7 @@ function renderBankOut(g,bank,drag,z2){
   $('wheelListSum').textContent=wheelLast.length>SHOW?`展開前 ${SHOW} 組（共 ${wheelLast.length.toLocaleString('en-US')} 組，複製會複製全部）`:`展開全部 ${wheelLast.length} 組`;
   list.innerHTML=wheelLast.slice(0,SHOW).map((x,i)=>`<div><span>${String(i+1).padStart(4,' ')}</span><b>${x}</b></div>`).join('');
   $('wheelListWrap').hidden=false; $('wheelCopy').hidden=false; $('wheelCopied').textContent='';
-  $('wheelCascade').innerHTML=rot?`<p class="rule">第二區輪流配：每組第一區只配 1 個第二區，注數是全配的 1/${q}。開出的 6 個第一區號碼都在你的號碼裡時，對中的那一注一定是頭獎或貳獎（配到開出的第二區是頭獎，否則是貳獎）；全配則是 1 注頭獎＋${q-1} 注貳獎。中頭獎的機會少 ${q} 倍，「頭獎或貳獎」的機會不變，所以同樣花一塊錢，中百萬以上的機會是全配的 ${q} 倍。</p>`:bankCascade(id,rows,d,cost,tickets);
+  $('wheelCascade').innerHTML=rot?`<p class="rule">第二區輪流配：每組第一區只配 1 個第二區，注數是全配的 1/${q}。開出的 6 個第一區號碼都在你的號碼裡時，對中的那一注一定是頭獎或貳獎（配到開出的第二區是頭獎，否則是貳獎）；全配則是 1 注頭獎＋${q-1} 注貳獎。中頭獎的機會少 ${q} 倍，「頭獎或貳獎」的機會不變，所以同樣花一塊錢，中百萬以上的機會是全配的 ${q} 倍。</p>`:(g.z2&&q>1?`<p class="rule warn">⚠️ <b>不建議第二區全配</b>：同一組第一區配了 ${q} 個第二區，第一區全中時是 1 注頭獎＋${q-1} 注貳獎，這 ${q-1} 注<b>貳獎是自己跟自己平分</b>。台彩 1,962 期精確計算：每注平均少拿約 ${({2:1.5,3:2.3,4:2.6,5:2.8,6:3.0,7:3.1}[q]||3.2)} 個百分點，貳獎累積高的時候少 20 個百分點以上。改選「輪流配」，注數少 ${q} 倍、中百萬以上的機會一樣。</p>`:'')+bankCascade(id,rows,d,cost,tickets);
   window.__bankCheck={any,jp,top,tickets}; // 測試用
 }
 function bankCascade(id,rows,d,cost,tickets){
@@ -3458,7 +3459,7 @@ function setStyle(v){
 }
 document.querySelectorAll('.style-sw button').forEach(b=>b.onclick=()=>setStyle(b.dataset.style));
 setStyle(store('lucky.style')||'b'); // 預設風格：B 彩券行
-const APP_VER='5.5.1'; // 每次發布跟 android/build.sh 的 VERSION_NAME 一起改
+const APP_VER='5.5.2'; // 每次發布跟 android/build.sh 的 VERSION_NAME 一起改
 $('appVer').textContent='版本 '+APP_VER;
 $('gearBtn').onclick=e=>{e.stopPropagation();const p=$('settingsPanel'),o=p.hidden;p.hidden=!o;$('gearBtn').setAttribute('aria-expanded',String(o))};
 document.addEventListener('click',e=>{const p=$('settingsPanel');if(!p.hidden&&!e.target.closest('#settingsPanel,#gearBtn')){p.hidden=true;$('gearBtn').setAttribute('aria-expanded','false')}});
